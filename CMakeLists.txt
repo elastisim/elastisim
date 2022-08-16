@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.16)
+project(elastisim)
+
+set(CMAKE_CXX_STANDARD 14)
+
+find_package(PythonLibs REQUIRED)
+
+include_directories(${SIMGRID_SOURCE_DIR}/include ${PYTHON_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/interface ${PROJECT_SOURCE_DIR}/src/software ${PROJECT_SOURCE_DIR}/src/system ${PROJECT_SOURCE_DIR}/src/system/messages ${PROJECT_SOURCE_DIR}/src/tasks ${PROJECT_SOURCE_DIR}/src/util ${PROJECT_SOURCE_DIR}/third-party/exprtk ${PROJECT_SOURCE_DIR}/third-party/nlohmann_json)
+
+add_executable(elastisim main.cpp src/system/SimulationEngine.cpp src/system/SimulationEngine.h src/software/Job.cpp src/software/Job.h src/system/Scheduler.cpp src/system/Scheduler.h src/system/Node.cpp src/system/Node.h src/util/Utility.cpp src/util/Utility.h src/ElastiSim.cpp src/ElastiSim.h src/system/PeriodicInvoker.cpp src/system/PeriodicInvoker.h src/software/Workload.cpp src/software/Workload.h src/system/PlatformManager.cpp src/system/PlatformManager.h src/tasks/Task.cpp src/tasks/Task.h src/tasks/BusyWaitTask.cpp src/tasks/BusyWaitTask.h src/tasks/CombinedTask.cpp src/tasks/CombinedTask.h src/tasks/PfsReadTask.cpp src/tasks/PfsReadTask.h src/tasks/BurstBufferWriteTask.cpp src/tasks/BurstBufferWriteTask.h src/tasks/PfsWriteTask.cpp src/tasks/PfsWriteTask.h src/system/Sensing.cpp src/system/Sensing.h src/system/JobSubmitter.cpp src/system/JobSubmitter.h src/software/Application.cpp src/software/Application.h src/system/WalltimeMonitor.cpp src/system/WalltimeMonitor.h src/tasks/IoTask.cpp src/tasks/IoTask.h src/tasks/BurstBufferReadTask.cpp src/tasks/BurstBufferReadTask.h src/tasks/SequenceTask.cpp src/tasks/SequenceTask.h src/software/Phase.cpp src/software/Phase.h src/interface/SchedulingInterface.cpp src/interface/SchedulingInterface.h src/system/messages/SimMsg.cpp src/system/messages/SimMsg.h src/system/messages/SchedMsg.cpp src/system/messages/SchedMsg.h src/system/messages/NodeMsg.cpp src/system/messages/NodeMsg.h src/util/Configuration.cpp src/util/Configuration.h src/tasks/CombinedGpuTask.cpp src/tasks/CombinedGpuTask.h src/system/Gpu.cpp src/system/Gpu.h src/tasks/IdleTask.cpp src/tasks/IdleTask.h src/tasks/DelayTask.cpp src/tasks/DelayTask.h src/tasks/CombinedCpuTask.cpp src/tasks/CombinedCpuTask.h src/tasks/AsyncSleep.cpp src/tasks/AsyncSleep.h)
+
+target_link_directories(elastisim PRIVATE ${SIMGRID_SOURCE_DIR}/lib)
+target_link_libraries(elastisim simgrid zmq ${PYTHON_LIBRARIES})
