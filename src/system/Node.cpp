@@ -106,24 +106,39 @@ void Node::killJob(Job* job) {
 }
 
 void Node::collectStatistics() {
+	std::string stateStr;
 	switch (state) {
 		case NODE_FREE:
-		case NODE_RESERVED:
-			nodeUtilizationOutput << simgrid::s4u::Engine::get_clock() << ","
-								  << getHostName() << ","
-								  << "None" << std::endl;
+			stateStr = "free";
 			break;
 		case NODE_ALLOCATED:
-			std::string jobIds;
-			for (auto& job: runningJobs) {
-				jobIds += std::to_string(job->getId()) + ";";
-			}
-			jobIds.pop_back();
-			nodeUtilizationOutput << simgrid::s4u::Engine::get_clock() << ","
-								  << getHostName() << ","
-								  << jobIds << std::endl;
+			stateStr = "allocated";
+			break;
+		case NODE_RESERVED:
+			stateStr = "reserved";
 			break;
 	}
+	std::string expectedJobIds = "none";
+	if (!expectedJobs.empty()) {
+		expectedJobIds.clear();
+		for (auto& job: expectedJobs) {
+			expectedJobIds += std::to_string(job->getId()) + ";";
+		}
+		expectedJobIds.pop_back();
+	}
+	std::string jobIds = "none";
+	if (!runningJobs.empty()) {
+		jobIds.clear();
+		for (auto& job: runningJobs) {
+			jobIds += std::to_string(job->getId()) + ";";
+		}
+		jobIds.pop_back();
+	}
+	nodeUtilizationOutput << simgrid::s4u::Engine::get_clock() << ","
+						  << getHostName() << ","
+						  << stateStr << ","
+						  << jobIds << ","
+						  << expectedJobIds << std::endl;
 }
 
 Node::Node(int id, NodeType type, s4u_Host* host, s4u_Disk* nodeLocalBurstBuffer,

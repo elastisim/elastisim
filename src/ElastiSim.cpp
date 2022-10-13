@@ -11,6 +11,7 @@
 #include "ElastiSim.h"
 
 #include <simgrid/s4u.hpp>
+#include <xbt/parse_units.hpp>
 #include <sstream>
 
 #include "PlatformManager.h"
@@ -40,7 +41,7 @@ void ElastiSim::startSimulation(int argc, char* argv[]) {
 	engine.load_platform(Configuration::get("platform_file"));
 
 	std::ofstream nodeUtilization(Configuration::get("node_utilization"));
-	nodeUtilization << "Time,Node,Job IDs" << std::endl;
+	nodeUtilization << "Time,Node,State,Running jobs,Expected jobs" << std::endl;
 
 	const std::vector<s4u_Host*>& hosts = engine.get_all_hosts();
 	std::vector<s4u_Host*> filteredHosts;
@@ -79,28 +80,29 @@ void ElastiSim::startSimulation(int argc, char* argv[]) {
 			pfsTargets = filteredPfs;
 		}
 
-		int numGpusPerNode = 0;
+		int numGpus = 0;
 		long flopsPerGpu = 0;
 		long gpuToGpuBandwidth = 0;
-		if (host->get_property("num_gpus_per_node")) {
-			numGpusPerNode = std::stoi(host->get_property("num_gpus_per_node"));
-			flopsPerGpu = std::stol(host->get_property("flops_per_gpu"));
-			gpuToGpuBandwidth = std::stol(host->get_property("gpu_to_gpu_bw"));
+		if (host->get_property("num_gpus")) {
+			numGpus = std::stoi(host->get_property("num_gpus"));
+			flopsPerGpu = (long) xbt_parse_get_speed("", 0, host->get_property("flops_per_gpu"), "");
+			if (numGpus > 1) {
+				gpuToGpuBandwidth = (long) xbt_parse_get_bandwidth("", 0, host->get_property("gpu_to_gpu_bw"), "");
+			}
 		}
-
 		std::vector<std::unique_ptr<Gpu>> gpus;
-		gpus.reserve(numGpusPerNode);
-		for (int i = 0; i < numGpusPerNode; ++i) {
+		gpus.reserve(numGpus);
+		for (int i = 0; i < numGpus; ++i) {
 			gpus.push_back(std::make_unique<Gpu>(i, flopsPerGpu, host));
 		}
 
-		if (std::string(host->get_property("node_local_bb")) == "True") {
+		if (getPropertyIfExists(host->get_property("node_local_bb")) == "true") {
 			s4u_Disk* disk = host->create_disk("BurstBuffer@" + hostname, host->get_property("bb_read_bw"),
 											   host->get_property("bb_write_bw"));
 			disk->seal();
-			if (std::string(host->get_property("wide_striping")) == "True") {
+			if (getPropertyIfExists(host->get_property("wide_striping")) == "true") {
 
-				double flopsPerByte = std::stod(host->get_property("flops_per_byte"));
+				double flopsPerByte = xbt_parse_get_speed("", 0, host->get_property("flops_per_byte"), "");
 				nodes.emplace_back(
 						std::make_unique<Node>(id++, COMPUTE_NODE_WITH_WIDE_STRIPED_BB, host, disk, pfsTargets,
 											   flopsPerByte, std::move(gpus), gpuToGpuBandwidth, nodeUtilization));

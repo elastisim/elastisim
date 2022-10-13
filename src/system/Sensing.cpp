@@ -59,7 +59,7 @@ void Sensing::operator()() const {
 
 	cpuUtilization << "Time," << nodeNames << std::endl;
 	networkActivity << "Time,Utilization" << std::endl;
-	pfsUtilization << "Time,Read,Write,ReadRelative,WriteRelative" << std::endl;
+	pfsUtilization << "Time,Read,Write,Read (rel.),Write (rel.)" << std::endl;
 	gpuUtilization << "Time," << nodeNames << std::endl;
 
 	double time;
@@ -83,7 +83,7 @@ void Sensing::operator()() const {
 			for (auto& gpu: gpus) {
 				totalGpuUtilization += gpu->getUtilization();
 			}
-			nodeGpuUtilizations += gpus.empty() ? "0" : std::to_string(totalGpuUtilization / gpus.size()) + ",";
+			nodeGpuUtilizations += gpus.empty() ? "0," : std::to_string(totalGpuUtilization / gpus.size()) + ",";
 		}
 		nodeCpuUtilizations.pop_back();
 		cpuUtilization << nodeCpuUtilizations << std::endl;

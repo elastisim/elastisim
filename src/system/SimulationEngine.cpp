@@ -66,9 +66,20 @@ void SimulationEngine::operator()() {
 		mailboxNode->put(new NodeMsg(NODE_FINALIZE), 0);
 	}
 
-	jobStatistics << "Job ID,Submit Time,Start Time,End Time,Wait Time,Makespan,Turnaround Time,Status" << std::endl;
+	jobStatistics << "ID,Type,Submit Time,Start Time,End Time,Wait Time,Makespan,Turnaround Time,Status" << std::endl;
 	for (const auto& job: jobs) {
 		jobStatistics << job->getId() << ",";
+		switch (job->getType()) {
+			case RIGID:
+				jobStatistics << "rigid" << ",";
+				break;
+			case MOLDABLE:
+				jobStatistics << "moldable" << ",";
+				break;
+			case MALLEABLE:
+				jobStatistics << "malleable" << ",";
+				break;
+		}
 		jobStatistics << job->getSubmitTime() << ",";
 		jobStatistics << job->getStartTime() << ",";
 		jobStatistics << job->getEndTime() << ",";

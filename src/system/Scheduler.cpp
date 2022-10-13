@@ -24,11 +24,13 @@ XBT_LOG_NEW_DEFAULT_CATEGORY(Scheduler, "Messages within the Scheduler actor");
 
 Scheduler::Scheduler(s4u_Host* masterHost) :
 		masterHost(masterHost), schedulingInterval(Configuration::get("scheduling_interval")),
-		schedulingMinInterval(Configuration::get("scheduling_min_interval")), lastInvocation(-schedulingMinInterval),
+		minSchedulingInterval(Configuration::exists("min_scheduling_interval")
+							  ? (double) Configuration::get("min_scheduling_interval")
+							  : schedulingInterval), lastInvocation(-minSchedulingInterval),
 		scheduleOnJobSubmit(Configuration::get("schedule_on_job_submit")), currentJobId(0) {}
 
 void Scheduler::schedule() {
-	if (simgrid::s4u::Engine::get_clock() - lastInvocation >= schedulingMinInterval) {
+	if (simgrid::s4u::Engine::get_clock() - lastInvocation >= minSchedulingInterval) {
 		SchedulingInterface::schedule(jobQueue);
 		for (auto& job: jobQueue) {
 			if (job->getState() == TO_BE_ALLOCATED) {
@@ -107,13 +109,13 @@ void Scheduler::handleSchedulingPoint(Job* job, Node* node, int completedPhases,
 
 			// continue with reconfiguration
 			std::set<Node*> previousNodes(std::begin(job->getExecutingNodes()),
-														  std::end(job->getExecutingNodes()));
+										  std::end(job->getExecutingNodes()));
 
 			// setting the state implies taking over new nodes
 			job->setState(IN_RECONFIGURATION);
 
 			std::set<Node*> newNodes(std::begin(job->getExecutingNodes()),
-													 std::end(job->getExecutingNodes()));
+									 std::end(job->getExecutingNodes()));
 
 			int rank = 0;
 			std::map<std::string, int> ranks;

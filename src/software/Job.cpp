@@ -24,7 +24,7 @@ Job::Job(int walltime, int numNodes, int numGpusPerNode, double submitTime,
 		numGpusPerNode(numGpusPerNode), numNodesMin(-1), numNodesMax(-1), numGpusPerNodeMin(-1), numGpusPerNodeMax(-1),
 		submitTime(submitTime), startTime(-1), endTime(-1), waitTime(-1), makespan(-1), turnaroundTime(-1),
 		arguments(std::move(arguments)), attributes(std::move(attributes)), workload(std::move(workload)),
-		assignedNumGpusPerNode(numGpusPerNode), executingNumGpusPerNode(-1) {
+		assignedNumGpusPerNode(0), executingNumGpusPerNode(0) {
 	checkSpecification();
 }
 
@@ -36,7 +36,7 @@ Job::Job(int walltime, JobType type, int numNodesMin, int numNodesMax, int numGp
 		numGpusPerNodeMin(numGpusPerNodeMin),
 		numGpusPerNodeMax(numGpusPerNodeMax), submitTime(submitTime), startTime(-1), endTime(-1), waitTime(-1),
 		makespan(-1), turnaroundTime(-1), arguments(std::move(arguments)), attributes(std::move(attributes)),
-		workload(std::move(workload)), assignedNumGpusPerNode(-1), executingNumGpusPerNode(-1) {
+		workload(std::move(workload)), assignedNumGpusPerNode(0), executingNumGpusPerNode(0) {
 	checkSpecification();
 }
 

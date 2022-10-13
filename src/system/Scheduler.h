@@ -24,7 +24,7 @@ class Scheduler {
 private:
 	s4u_Host* masterHost;
 	double schedulingInterval;
-	double schedulingMinInterval;
+	double minSchedulingInterval;
 	double lastInvocation;
 	bool scheduleOnJobSubmit;
 	std::vector<Job*> jobQueue;

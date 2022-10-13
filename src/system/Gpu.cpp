@@ -56,6 +56,7 @@ s4u_Mailbox* Gpu::execAsync(double flops) {
 
 nlohmann::json Gpu::toJson() {
 	nlohmann::json json;
+	json["id"] = id;
 	json["state"] = state;
 	return json;
 }
