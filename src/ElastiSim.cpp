@@ -102,7 +102,10 @@ void ElastiSim::startSimulation(int argc, char* argv[]) {
 			disk->seal();
 			if (getPropertyIfExists(host->get_property("wide_striping")) == "true") {
 
-				double flopsPerByte = xbt_parse_get_speed("", 0, host->get_property("flops_per_byte"), "");
+				double flopsPerByte = 0;
+				if (host->get_property("flops_per_byte")) {
+					flopsPerByte = xbt_parse_get_speed("", 0, host->get_property("flops_per_byte"), "");
+				}
 				nodes.emplace_back(
 						std::make_unique<Node>(id++, COMPUTE_NODE_WITH_WIDE_STRIPED_BB, host, disk, pfsTargets,
 											   flopsPerByte, std::move(gpus), gpuToGpuBandwidth, nodeUtilization));
