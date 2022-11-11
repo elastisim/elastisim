@@ -27,19 +27,21 @@ Scheduler::Scheduler(s4u_Host* masterHost) :
 		minSchedulingInterval(Configuration::exists("min_scheduling_interval")
 							  ? (double) Configuration::get("min_scheduling_interval")
 							  : schedulingInterval), lastInvocation(-minSchedulingInterval),
-		scheduleOnJobSubmit(Configuration::get("schedule_on_job_submit")), currentJobId(0) {}
+		scheduleOnJobSubmit(Configuration::getBoolIfExists("schedule_on_job_submit")),
+		scheduleOnJobFinalize(Configuration::getBoolIfExists("schedule_on_job_finalize")), currentJobId(0) {}
 
 void Scheduler::schedule() {
-	if (simgrid::s4u::Engine::get_clock() - lastInvocation >= minSchedulingInterval) {
+	double clock = simgrid::s4u::Engine::get_clock();
+	if (clock - lastInvocation >= minSchedulingInterval) {
 		SchedulingInterface::schedule(jobQueue);
 		for (auto& job: jobQueue) {
 			if (job->getState() == TO_BE_ALLOCATED) {
 				forwardJobAllocation(job);
 			} else if (job->getState() == TO_BE_KILLED) {
-				forwardJobKill(job);
+				forwardJobKill(job, false);
 			}
 		}
-		lastInvocation = simgrid::s4u::Engine::get_clock();
+		lastInvocation = clock;
 	}
 }
 
@@ -68,10 +70,13 @@ void Scheduler::handleProcessedWorkload(Job* job, Node* node) {
 		}
 		s4u_Mailbox* mailboxSimulator = s4u_Mailbox::by_name("SimulationEngine");
 		mailboxSimulator->put(new SimMsg(JOB_COMPLETED, job->getId()), 0);
+		if (scheduleOnJobFinalize) {
+			schedule();
+		}
 	}
 }
 
-void Scheduler::forwardJobKill(Job* job) {
+void Scheduler::forwardJobKill(Job* job, bool exceededWalltime) {
 	walltimeMonitors.erase(job);
 	s4u_Mailbox* mailboxNode;
 	for (auto& node: job->getExecutingNodes()) {
@@ -81,6 +86,9 @@ void Scheduler::forwardJobKill(Job* job) {
 	job->setState(KILLED);
 	s4u_Mailbox* mailboxSimulator = s4u_Mailbox::by_name("SimulationEngine");
 	mailboxSimulator->put(new SimMsg(JOB_KILLED, job->getId()), 0);
+	if (exceededWalltime && scheduleOnJobFinalize) {
+		schedule();
+	}
 }
 
 void Scheduler::forwardJobAllocation(Job* job) {
@@ -186,7 +194,7 @@ void Scheduler::operator()() {
 								  payload->getRemainingIterations());
 		} else if (payload->getType() == WALLTIME_EXCEEDED) {
 			XBT_INFO("Received exceeded walltime");
-			forwardJobKill(payload->getJob());
+			forwardJobKill(payload->getJob(), true);
 		} else if (payload->getType() == WORKLOAD_PROCESSED) {
 			XBT_INFO("Received workload processed message from %s running Job %d",
 					 payload->getNode()->getHostName().c_str(), payload->getJob()->getId());

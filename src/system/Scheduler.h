@@ -27,6 +27,7 @@ private:
 	double minSchedulingInterval;
 	double lastInvocation;
 	bool scheduleOnJobSubmit;
+	bool scheduleOnJobFinalize;
 	std::vector<Job*> jobQueue;
 	std::map<Job*, simgrid::s4u::ActorPtr> walltimeMonitors;
 	std::map<Job*, std::set<Node*>> assignedNodes;
@@ -38,7 +39,7 @@ private:
 
 	void handleProcessedWorkload(Job* job, Node* node);
 
-	void forwardJobKill(Job* job);
+	void forwardJobKill(Job* job, bool exceededWalltime);
 
 	void forwardJobAllocation(Job* job);
 
