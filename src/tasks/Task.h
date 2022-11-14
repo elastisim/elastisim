@@ -19,20 +19,23 @@ class Node;
 class Job;
 
 enum VectorPattern {
-	VECTOR,
+	ALL_RANKS,
+	ROOT_ONLY,
+	EVEN_RANKS,
+	ODD_RANKS,
 	UNIFORM,
-	EVEN,
-	ODD,
-	TOTAL
+	VECTOR
 };
 
 enum MatrixPattern {
-	MATRIX,
 	ALL_TO_ALL,
+	GATHER,
+	SCATTER,
+	MASTER_WORKER,
 	RING,
 	RING_CLOCKWISE,
 	RING_COUNTER_CLOCKWISE,
-	MASTER_WORKER
+	MATRIX
 };
 
 class Task {

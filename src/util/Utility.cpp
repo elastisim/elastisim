@@ -52,26 +52,38 @@ JobType Utility::parseJobType(const std::string& jobType) {
 
 std::string Utility::asString(VectorPattern pattern) {
 	switch (pattern) {
+		case ALL_RANKS:
+			return "ALL_RANKS";
+		case ROOT_ONLY:
+			return "ROOT_ONLY";
+		case EVEN_RANKS:
+			return "EVEN_RANKS";
+		case ODD_RANKS:
+			return "ODD_RANKS";
 		case VECTOR:
 			return "VECTOR";
 		case UNIFORM:
 			return "UNIFORM";
-		case TOTAL:
-			return "TOTAL";
 		default:
 			xbt_die("Unknown vector pattern");
 	}
 }
 
 VectorPattern Utility::asVectorPattern(const std::string& pattern) {
-	if (toLower(pattern) == "vector") {
-		return VECTOR;
+	if (toLower(pattern) == "root_only") {
+		return ROOT_ONLY;
+	} else if (toLower(pattern) == "all_ranks" || toLower(pattern) == "total") {
+		return ALL_RANKS;
+	} else if (toLower(pattern) == "even_ranks") {
+		return EVEN_RANKS;
+	} else if (toLower(pattern) == "odd_ranks") {
+		return ODD_RANKS;
 	} else if (toLower(pattern) == "uniform") {
 		return UNIFORM;
-	} else if (toLower(pattern) == "total") {
-		return TOTAL;
+	} else if (toLower(pattern) == "vector") {
+		return VECTOR;
 	} else {
-		xbt_die("Unknown pattern type %s", pattern.c_str());
+		xbt_die("Unknown vector pattern type %s", pattern.c_str());
 	}
 }
 
@@ -79,14 +91,20 @@ std::string Utility::asString(MatrixPattern pattern) {
 	switch (pattern) {
 		case ALL_TO_ALL:
 			return "ALL_TO_ALL";
-		case RING:
-			return "RING";
+		case GATHER:
+			return "GATHER";
+		case SCATTER:
+			return "SCATTER";
 		case MASTER_WORKER:
 			return "MASTER_WORKER";
+		case RING:
+			return "RING";
 		case RING_CLOCKWISE:
 			return "RING_CLOCKWISE";
 		case RING_COUNTER_CLOCKWISE:
 			return "RING_COUNTER_CLOCKWISE";
+		case MATRIX:
+			return "MATRIX";
 		default:
 			xbt_die("Unknown matrix pattern");
 	}
@@ -95,16 +113,22 @@ std::string Utility::asString(MatrixPattern pattern) {
 MatrixPattern Utility::asMatrixPattern(const std::string& pattern) {
 	if (toLower(pattern) == "all_to_all") {
 		return ALL_TO_ALL;
-	} else if (toLower(pattern) == "ring") {
-		return RING;
+	} else if (toLower(pattern) == "gather") {
+		return GATHER;
+	} else if (toLower(pattern) == "scatter") {
+		return SCATTER;
 	} else if (toLower(pattern) == "master_worker") {
 		return MASTER_WORKER;
+	} else if (toLower(pattern) == "ring") {
+		return RING;
 	} else if (toLower(pattern) == "ring_clockwise") {
 		return RING_CLOCKWISE;
 	} else if (toLower(pattern) == "ring_counter_clockwise") {
 		return RING_COUNTER_CLOCKWISE;
+	} else if (toLower(pattern) == "matrix") {
+		return MATRIX;
 	} else {
-		xbt_die("Unknown pattern type %s", pattern.c_str());
+		xbt_die("Unknown matrix pattern type %s", pattern.c_str());
 	}
 }
 
@@ -420,15 +444,19 @@ Utility::createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name,
 				xbt_die("Payloads require a number or string type");
 			}
 		} else {
-			if (jsonTask["bytes"].is_number()) {
-				std::tie(intraNodeCommunication, interNodeCommunication) =
-						createMatrices((double) jsonTask["bytes"], comPattern, numNodes, numGpusPerNode);
-			} else if (jsonTask["bytes"].is_string()) {
-				std::tie(intraNodeCommunication, interNodeCommunication) =
-						createMatrices(applyArguments(jsonTask["bytes"], arguments), comPattern, numNodes,
-									   numGpusPerNode);
+			if (comPattern == MATRIX) {
+				xbt_die("MATRIX communication_pattern not supported for GPU tasks");
 			} else {
-				xbt_die("Payloads require a number or string type");
+				if (jsonTask["bytes"].is_number()) {
+					std::tie(intraNodeCommunication, interNodeCommunication) =
+							createMatrices((double) jsonTask["bytes"], comPattern, numNodes, numGpusPerNode);
+				} else if (jsonTask["bytes"].is_string()) {
+					std::tie(intraNodeCommunication, interNodeCommunication) =
+							createMatrices(applyArguments(jsonTask["bytes"], arguments), comPattern, numNodes,
+										   numGpusPerNode);
+				} else {
+					xbt_die("Payloads require a number or string type");
+				}
 			}
 		}
 
@@ -512,13 +540,21 @@ Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name,
 				xbt_die("Payloads require a number or string type");
 			}
 		} else {
-			if (jsonTask["bytes"].is_number()) {
-				bytes = createMatrix((double) jsonTask["bytes"], comPattern, numNodes);
-			} else if (jsonTask["bytes"].is_string()) {
-				bytes = createMatrix(applyArguments(jsonTask["bytes"], arguments), comPattern, numNodes,
-									 numGpusPerNode);
+			if (comPattern == MATRIX) {
+				if (jsonTask["bytes"].is_primitive()) {
+					xbt_die("MATRIX communication_pattern requires an array type");
+				}
+				std::vector<double> local = jsonTask["bytes"];
+				bytes = std::move(local);
 			} else {
-				xbt_die("Payloads require a number or string type");
+				if (jsonTask["bytes"].is_number()) {
+					bytes = createMatrix((double) jsonTask["bytes"], comPattern, numNodes);
+				} else if (jsonTask["bytes"].is_string()) {
+					bytes = createMatrix(applyArguments(jsonTask["bytes"], arguments), comPattern, numNodes,
+										 numGpusPerNode);
+				} else {
+					xbt_die("Payloads require a number or string type");
+				}
 			}
 		}
 
@@ -574,7 +610,21 @@ std::vector<double> Utility::createVector(double size, VectorPattern pattern, in
 	std::vector<double> sizes(numNodes);
 	if (pattern == UNIFORM) {
 		std::fill(std::begin(sizes), std::end(sizes), size);
-	} else if (pattern == TOTAL) {
+	} else if (pattern == EVEN_RANKS) {
+		int participatingNodes = numNodes % 2 == 0 ? numNodes / 2 : numNodes / 2 + 1;
+		double sizePerNode = size / participatingNodes;
+		for (int i = 0; i < numNodes; i+=2) {
+			sizes[i] = sizePerNode;
+		}
+	} else if (pattern == ODD_RANKS) {
+		int participatingNodes = numNodes / 2;
+		double sizePerNode = size / participatingNodes;
+		for (int i = 1; i < numNodes; i+=2) {
+			sizes[i] = sizePerNode;
+		}
+	} else if (pattern == ROOT_ONLY) {
+		sizes[0] = size;
+	} else if (pattern == ALL_RANKS) {
 		double sizePerNode = size / numNodes;
 		std::fill(std::begin(sizes), std::end(sizes), sizePerNode);
 	}
@@ -601,6 +651,16 @@ Utility::createMatrix(double size, MatrixPattern pattern, int numNodes) {
 				if (i == j) continue;
 				sizes[i * numNodes + j] = payload;
 			}
+		}
+	} else if (pattern == GATHER) {
+		payload = size / (numNodes - 1);
+		for (int i = 1; i < numNodes; ++i) {
+			sizes[i * numNodes] = payload;
+		}
+	} else if (pattern == SCATTER) {
+		payload = size / (numNodes - 1);
+		for (int i = 1; i < numNodes; ++i) {
+			sizes[i] = payload;
 		}
 	} else if (pattern == RING) {
 		payload = size / (numNodes * 2);
