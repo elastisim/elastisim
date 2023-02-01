@@ -653,12 +653,12 @@ Utility::createMatrix(double size, MatrixPattern pattern, int numNodes) {
 			}
 		}
 	} else if (pattern == GATHER) {
-		payload = size / (numNodes - 1);
+		payload = size / numNodes;
 		for (int i = 1; i < numNodes; ++i) {
 			sizes[i * numNodes] = payload;
 		}
 	} else if (pattern == SCATTER) {
-		payload = size / (numNodes - 1);
+		payload = size / numNodes;
 		for (int i = 1; i < numNodes; ++i) {
 			sizes[i] = payload;
 		}

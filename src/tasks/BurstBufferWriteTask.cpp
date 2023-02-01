@@ -33,27 +33,25 @@ void BurstBufferWriteTask::execute(const Node* node, const Job* job,
 	} else if (node->getType() == COMPUTE_NODE_WITH_WIDE_STRIPED_BB) {
 		std::vector<simgrid::s4u::ActivityPtr> activities;
 		int numNodes = nodes.size();
-		double sizePerHost = ioSizes[rank] / nodes.size();
-		XBT_INFO("Writing %f bytes from burst buffer", sizePerHost);
+		double sizePerHost = ioSizes[rank] / numNodes;
+		XBT_INFO("Writing %f bytes to burst buffer", sizePerHost);
+		activities.emplace_back(node->getNodeLocalBurstBuffer()->read_async(sizePerHost));
+		std::vector<simgrid::s4u::Host*> hosts;
+		std::vector<double> flops;
+		std::vector<double> payloads(numNodes * numNodes);
+		int destinationRank = 0;
 		for (auto& assignedNode: nodes) {
+			hosts.emplace_back(assignedNode->getHost());
+			flops.emplace_back(assignedNode->getFlopsPerByte() * sizePerHost);
 			if (assignedNode == node) continue;
-			XBT_INFO("Writing %f bytes from burst buffer %s", sizePerHost, assignedNode->getHostName().c_str());
+			XBT_INFO("Writing %f bytes to burst buffer of %s", sizePerHost, assignedNode->getHostName().c_str());
+			int index = rank * numNodes + destinationRank++;
+			payloads[index] = sizePerHost;
 		}
-		activities.emplace_back(node->getNodeLocalBurstBuffer()->write_async(sizePerHost));
-		if (rank == 0) {
-			std::vector<simgrid::s4u::Host*> hosts;
-			std::vector<Node*> assignedNodes = nodes;
-			auto func = [](const Node* node) { return node->getHost(); };
-			std::transform(std::begin(assignedNodes), std::end(assignedNodes), std::back_inserter(hosts), func);
-			std::vector<double> flops(numNodes, numNodes * node->getFlopsPerByte() * sizePerHost);
-			std::vector<double> payloads = Utility::createMatrix(sizePerHost * (numNodes * numNodes - numNodes),
-																 ALL_TO_ALL, numNodes);
-			simgrid::s4u::this_actor::parallel_execute(hosts, flops, payloads);
-		}
+		simgrid::s4u::this_actor::parallel_execute(hosts, flops, payloads);
 		for (auto& activity: activities) {
 			activity->wait();
 		}
-		barrier->wait();
 	} else {
 		xbt_die("Unknown compute node type");
 	}

@@ -27,7 +27,9 @@ PfsReadTask::PfsReadTask(const std::string& name, const std::string& iterations,
 
 void PfsReadTask::execute(const Node* node, const Job* job,
 						  const std::vector<Node*>& nodes, int rank, simgrid::s4u::BarrierPtr barrier) const {
-	XBT_INFO("Reading %f bytes from PFS", ioSizes[rank]);
+	if (ioSizes[rank] > 0) {
+		XBT_INFO("Reading %f bytes from PFS", ioSizes[rank]);
+	}
 	std::vector<s4u_Host*> hosts = {node->getHost()};
 	std::vector<s4u_Host*> pfsHosts = node->getPfsHosts();
 	hosts.insert(std::end(hosts), std::begin(pfsHosts), std::end(pfsHosts));
@@ -44,7 +46,9 @@ void PfsReadTask::execute(const Node* node, const Job* job,
 std::vector<simgrid::s4u::ActivityPtr>
 PfsReadTask::executeAsync(const Node* node, const Job* job,
 						  const std::vector<Node*>& nodes, int rank) const {
-	XBT_INFO("Asynchronously reading %f bytes from PFS", ioSizes[rank]);
+	if (ioSizes[rank] > 0) {
+		XBT_INFO("Asynchronously reading %f bytes from PFS", ioSizes[rank]);
+	}
 	std::vector<s4u_Host*> hosts = {node->getHost()};
 	std::vector<s4u_Host*> pfsHosts = node->getPfsHosts();
 	hosts.insert(std::end(hosts), std::begin(pfsHosts), std::end(pfsHosts));

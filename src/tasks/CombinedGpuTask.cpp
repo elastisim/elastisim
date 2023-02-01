@@ -86,6 +86,7 @@ void CombinedGpuTask::execute(const Node* node, const Job* job,
 		gpuLinkCallback = node->execGpuTransferAsync(intraNodeCommunications, numGpusPerNode);
 	}
 
+	std::vector<simgrid::s4u::ActivityPtr> activities;
 	if (!interNodeCommunications.empty()) {
 		size_t numberOfAssignedNodes = nodes.size();
 		int destinationRank = 0;
@@ -93,23 +94,18 @@ void CombinedGpuTask::execute(const Node* node, const Job* job,
 			int index = rank * numberOfAssignedNodes + destinationRank++;
 			if (interNodeCommunications[index] > 0) {
 				XBT_INFO("Sending %f bytes to %s", interNodeCommunications[index], assignedNode->getHostName().c_str());
+				activities.emplace_back(s4u_Comm::sendto_async(node->getHost(), assignedNode->getHost(), interNodeCommunications[index]));
 			}
 		}
-		if (rank == 0) {
-			std::vector<s4u_Host*> hosts;
-			std::vector<Node*> assignedNodes = nodes;
-			auto func = [](const Node* node) { return node->getHost(); };
-			std::transform(std::begin(assignedNodes), std::end(assignedNodes), std::back_inserter(hosts), func);
-			std::vector<double> empty(numberOfAssignedNodes);
-			simgrid::s4u::this_actor::parallel_execute(hosts, empty, interNodeCommunications);
-		}
-		barrier->wait();
 	}
 	for (auto& gpuCallback: gpuCallbacks) {
 		gpuCallback->get<void>();
 	}
 	if (!intraNodeCommunications.empty()) {
 		gpuLinkCallback->get<void>();
+	}
+	for (auto& activity: activities) {
+		activity->wait();
 	}
 }
 
