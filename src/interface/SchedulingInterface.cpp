@@ -19,11 +19,15 @@ XBT_LOG_NEW_DEFAULT_CATEGORY(SchedulingInterface, "Messages within the schedulin
 zmq::context_t SchedulingInterface::context;
 zmq::socket_t SchedulingInterface::socket(context, zmq::socket_type::pair);
 
-void SchedulingInterface::invokeScheduling(const std::vector<Job*>& jobQueue) {
+void SchedulingInterface::invokeScheduling(InvocationType invocationType, const std::vector<Job*>& jobQueue, const Job* requestingJob) {
 	std::vector<Node*> nodes = PlatformManager::getComputeNodes();
 	nlohmann::json message;
 	message["code"] = ZMQ_INVOKE_SCHEDULING;
 	message["time"] = simgrid::s4u::Engine::get_clock();
+	message["invocation_type"] = invocationType;
+	if (invocationType != INVOKE_PERIODIC) {
+		message["job_id"] = requestingJob->getId();
+	}
 	message["jobs"] = nlohmann::json::array();
 	for (auto& job: jobQueue) {
 		message["jobs"].push_back(job->toJson());
@@ -49,7 +53,7 @@ void SchedulingInterface::handleSchedule(const nlohmann::json& jsonJobs, const s
 	for (auto& jsonJob: jsonJobs) {
 		Job* job = jobQueue[jsonJob["id"]];
 		if (jsonJob["kill_flag"]) {
-			job->setState(TO_BE_KILLED);
+			job->setState(PENDING_KILL);
 		} else {
 			job->clearAssignedNodes();
 			for (auto& jsonNodeId: jsonJob["assigned_node_ids"]) {
@@ -64,9 +68,9 @@ void SchedulingInterface::handleSchedule(const nlohmann::json& jsonJobs, const s
 	}
 }
 
-void SchedulingInterface::schedule(const std::vector<Job*>& jobQueue) {
+void SchedulingInterface::schedule(InvocationType invocationType, const std::vector<Job*>& jobQueue, const Job* requestingJob) {
 
-	invokeScheduling(jobQueue);
+	invokeScheduling(invocationType, jobQueue, requestingJob);
 
 	zmq::message_t message;
 	nlohmann::json json;

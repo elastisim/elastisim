@@ -14,6 +14,7 @@
 
 #include <zmq.hpp>
 #include <json.hpp>
+#include "Scheduler.h"
 
 class Job;
 
@@ -31,14 +32,14 @@ private:
 	static zmq::context_t context;
 	static zmq::socket_t socket;
 
-	static void invokeScheduling(const std::vector<Job*>& jobQueue);
+	static void invokeScheduling(InvocationType invocationType, const std::vector<Job*>& jobQueue, const Job* requestingJob);
 
 public:
 	static void init();
 
 	static void handleSchedule(const nlohmann::json& jsonJobs, const std::vector<Job*>& jobQueue);
 
-	static void schedule(const std::vector<Job*>& jobQueue);
+	static void schedule(InvocationType invocationType, const std::vector<Job*>& jobQueue, const Job* requestingJob);
 
 	static void finalize();
 

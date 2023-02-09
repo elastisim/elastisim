@@ -57,7 +57,7 @@ JobState Job::getState() const {
 }
 
 void Job::setState(JobState newState) {
-	if (state == TO_BE_ALLOCATED) {
+	if (state == PENDING_ALLOCATION) {
 		if (newState == RUNNING) {
 			startTime = simgrid::s4u::Engine::get_clock();
 			waitTime = startTime - submitTime;
@@ -171,7 +171,7 @@ void Job::completeWorkload() {
 void Job::updateState() {
 	if (assignedNodes != executingNodes) {
 		if (state == PENDING) {
-			state = TO_BE_ALLOCATED;
+			state = PENDING_ALLOCATION;
 		} else if (state == RUNNING) {
 			state = PENDING_RECONFIGURATION;
 		}

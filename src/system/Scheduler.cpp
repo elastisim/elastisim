@@ -19,25 +19,30 @@
 #include "SchedMsg.h"
 #include "NodeMsg.h"
 #include "Configuration.h"
+#include "SchedulingInterface.h"
 
 XBT_LOG_NEW_DEFAULT_CATEGORY(Scheduler, "Messages within the Scheduler actor");
 
 Scheduler::Scheduler(s4u_Host* masterHost) :
-		masterHost(masterHost), schedulingInterval(Configuration::get("scheduling_interval")),
-		minSchedulingInterval(Configuration::exists("min_scheduling_interval")
-							  ? (double) Configuration::get("min_scheduling_interval")
-							  : schedulingInterval), lastInvocation(-minSchedulingInterval),
+		masterHost(masterHost),
+		schedulingInterval(Configuration::exists("scheduling_interval") ?
+						   (double) Configuration::get("scheduling_interval") : 0),
+		minSchedulingInterval(Configuration::exists("min_scheduling_interval") ?
+							  (double) Configuration::get("min_scheduling_interval") : 0), lastInvocation(0),
 		scheduleOnJobSubmit(Configuration::getBoolIfExists("schedule_on_job_submit")),
-		scheduleOnJobFinalize(Configuration::getBoolIfExists("schedule_on_job_finalize")), currentJobId(0) {}
+		scheduleOnJobFinalize(Configuration::getBoolIfExists("schedule_on_job_finalize")),
+		scheduleOnSchedulingPoint(Configuration::getBoolIfExists("schedule_on_scheduling_point")), currentJobId(0) {
+	checkConfigurationValidity();
+}
 
-void Scheduler::schedule() {
+void Scheduler::schedule(InvocationType invocationType, Job* requestingJob) {
 	double clock = simgrid::s4u::Engine::get_clock();
-	if (clock - lastInvocation >= minSchedulingInterval) {
-		SchedulingInterface::schedule(jobQueue);
+	if (minSchedulingInterval == 0 || clock - lastInvocation >= minSchedulingInterval - EPSILON) {
+		SchedulingInterface::schedule(invocationType, jobQueue, requestingJob);
 		for (auto& job: jobQueue) {
-			if (job->getState() == TO_BE_ALLOCATED) {
+			if (job->getState() == PENDING_ALLOCATION) {
 				forwardJobAllocation(job);
-			} else if (job->getState() == TO_BE_KILLED) {
+			} else if (job->getState() == PENDING_KILL) {
 				forwardJobKill(job, false);
 			}
 		}
@@ -50,7 +55,7 @@ void Scheduler::handleJobSubmit(Job* job) {
 	job->setState(PENDING);
 	jobQueue.push_back(job);
 	if (scheduleOnJobSubmit) {
-		schedule();
+		schedule(INVOKE_JOB_SUBMIT, job);
 	}
 }
 
@@ -71,7 +76,7 @@ void Scheduler::handleProcessedWorkload(Job* job, Node* node) {
 		s4u_Mailbox* mailboxSimulator = s4u_Mailbox::by_name("SimulationEngine");
 		mailboxSimulator->put(new SimMsg(JOB_COMPLETED, job->getId()), 0);
 		if (scheduleOnJobFinalize) {
-			schedule();
+			schedule(INVOKE_JOB_COMPLETED, job);
 		}
 	}
 }
@@ -87,7 +92,7 @@ void Scheduler::forwardJobKill(Job* job, bool exceededWalltime) {
 	s4u_Mailbox* mailboxSimulator = s4u_Mailbox::by_name("SimulationEngine");
 	mailboxSimulator->put(new SimMsg(JOB_KILLED, job->getId()), 0);
 	if (exceededWalltime && scheduleOnJobFinalize) {
-		schedule();
+		schedule(INVOKE_JOB_KILLED, job);
 	}
 }
 
@@ -112,6 +117,11 @@ void Scheduler::handleSchedulingPoint(Job* job, Node* node, int completedPhases,
 	if (assignedNodes[job].empty()) {
 
 		job->advanceWorkload(completedPhases, remainingIterations);
+
+		if (scheduleOnSchedulingPoint) {
+			schedule(INVOKE_SCHEDULING_POINT, job);
+		}
+
 		s4u_Mailbox* mailboxNode;
 		if (job->getState() == PENDING_RECONFIGURATION) {
 
@@ -171,10 +181,24 @@ void Scheduler::handleSchedulingPoint(Job* job, Node* node, int completedPhases,
 	}
 }
 
+void Scheduler::checkConfigurationValidity() const {
+	if (schedulingInterval < 0) {
+		xbt_die("Scheduling interval can not be less than 0");
+	}
+	if (minSchedulingInterval < 0) {
+		xbt_die("Minimum scheduling interval can not be less than 0");
+	}
+	if (schedulingInterval == 0 && (!scheduleOnJobSubmit || !scheduleOnJobFinalize)) {
+		xbt_die("Scheduling algorithm must be invoked at least periodically or on job submission and job finalization");
+	}
+}
+
 void Scheduler::operator()() {
 
 	// initialization
-	s4u_Actor::create("PeriodicInvoker", masterHost, PeriodicInvoker(schedulingInterval));
+	if (schedulingInterval > 0) {
+		s4u_Actor::create("PeriodicInvoker", masterHost, PeriodicInvoker(schedulingInterval));
+	}
 	s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
 
 	SchedulingInterface::init();
@@ -183,7 +207,7 @@ void Scheduler::operator()() {
 	while (true) {
 		auto payload = mailboxScheduler->get_unique<SchedMsg>();
 		if (payload->getType() == INVOKE_SCHEDULING) {
-			schedule();
+			schedule(INVOKE_PERIODIC);
 		} else if (payload->getType() == JOB_SUBMIT) {
 			XBT_INFO("Received job submission");
 			handleJobSubmit(payload->getJob());

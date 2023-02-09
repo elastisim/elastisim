@@ -11,13 +11,22 @@
 #ifndef ELASTISIM_SCHEDULER_H
 #define ELASTISIM_SCHEDULER_H
 
+#define EPSILON 0.001
+
 #include "Job.h"
 #include <memory>
-#include "SchedulingInterface.h"
 
 class Node;
 
 class Job;
+
+enum InvocationType {
+	INVOKE_PERIODIC = 0,
+	INVOKE_JOB_SUBMIT = 1,
+	INVOKE_JOB_COMPLETED = 2,
+	INVOKE_JOB_KILLED = 3,
+	INVOKE_SCHEDULING_POINT = 4
+};
 
 class Scheduler {
 
@@ -28,12 +37,13 @@ private:
 	double lastInvocation;
 	bool scheduleOnJobSubmit;
 	bool scheduleOnJobFinalize;
+	bool scheduleOnSchedulingPoint;
 	std::vector<Job*> jobQueue;
 	std::map<Job*, simgrid::s4u::ActorPtr> walltimeMonitors;
 	std::map<Job*, std::set<Node*>> assignedNodes;
 	int currentJobId;
 
-	void schedule();
+	void schedule(InvocationType invocationType, Job* requestingJob = nullptr);
 
 	void handleJobSubmit(Job* job);
 
@@ -44,6 +54,8 @@ private:
 	void forwardJobAllocation(Job* job);
 
 	void handleSchedulingPoint(Job* job, Node* node, int completedPhases, int remainingIterations);
+
+	void checkConfigurationValidity() const;
 
 public:
 	explicit Scheduler(s4u_Host* masterHost);
