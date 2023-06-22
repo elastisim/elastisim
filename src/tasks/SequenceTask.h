@@ -25,7 +25,7 @@ private:
 
 	static double logTaskStart(const Task* task, int iterations);
 
-	static void logTaskEnd(const Task* task, double start);
+	static double logTaskEnd(const Task* task, double start);
 
 	static double logIterationStart(int iterations, int i);
 

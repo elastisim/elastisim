@@ -27,7 +27,7 @@ enum JobType {
 };
 
 enum JobState {
-	TO_BE_SUBMITTED = 0,
+	PENDING_SUBMISSION = 0,
 	PENDING = 1,
 	PENDING_ALLOCATION = 2,
 	PENDING_KILL = 3,

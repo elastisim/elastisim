@@ -37,9 +37,10 @@ private:
 public:
 	static void init();
 
-	static void handleSchedule(const nlohmann::json& jsonJobs, const std::vector<Job*>& jobQueue);
+	static std::vector<Job*> handleSchedule(const nlohmann::json& jsonJobs, const std::vector<Job*>& jobQueue);
 
-	static void schedule(InvocationType invocationType, const std::vector<Job*>& jobQueue, const Job* requestingJob);
+	static std::vector<Job*> schedule(InvocationType invocationType, const std::vector<Job*>& jobQueue,
+									  const std::vector<Job*>& modifiedJobs, const Job* requestingJob);
 
 	static void finalize();
 

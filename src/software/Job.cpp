@@ -20,7 +20,7 @@
 Job::Job(int walltime, int numNodes, int numGpusPerNode, double submitTime,
 		 std::map<std::string, std::string> arguments, std::map<std::string, std::string> attributes,
 		 std::unique_ptr<Workload> workload) :
-		id(-1), type(RIGID), state(TO_BE_SUBMITTED), walltime(walltime), numNodes(numNodes),
+		id(-1), type(RIGID), state(PENDING_SUBMISSION), walltime(walltime), numNodes(numNodes),
 		numGpusPerNode(numGpusPerNode), numNodesMin(-1), numNodesMax(-1), numGpusPerNodeMin(-1), numGpusPerNodeMax(-1),
 		submitTime(submitTime), startTime(-1), endTime(-1), waitTime(-1), makespan(-1), turnaroundTime(-1),
 		arguments(std::move(arguments)), attributes(std::move(attributes)), workload(std::move(workload)),
@@ -31,7 +31,7 @@ Job::Job(int walltime, int numNodes, int numGpusPerNode, double submitTime,
 Job::Job(int walltime, JobType type, int numNodesMin, int numNodesMax, int numGpusPerNodeMin, int numGpusPerNodeMax,
 		 double submitTime, std::map<std::string, std::string> arguments, std::map<std::string, std::string> attributes,
 		 std::unique_ptr<Workload> workload) :
-		id(-1), type(type), state(TO_BE_SUBMITTED), walltime(walltime),
+		id(-1), type(type), state(PENDING_SUBMISSION), walltime(walltime),
 		numNodes(-1), numGpusPerNode(-1), numNodesMin(numNodesMin), numNodesMax(numNodesMax),
 		numGpusPerNodeMin(numGpusPerNodeMin),
 		numGpusPerNodeMax(numGpusPerNodeMax), submitTime(submitTime), startTime(-1), endTime(-1), waitTime(-1),
@@ -74,6 +74,9 @@ void Job::setState(JobState newState) {
 	} else if (state == PENDING_RECONFIGURATION) {
 		if (newState == IN_RECONFIGURATION) {
 			executingNodes = assignedNodes;
+			for (auto& node: assignedNodes) {
+				node->removeExpectedJob(this);
+			}
 			executingNumGpusPerNode = assignedNumGpusPerNode;
 			size_t numNodes = executingNodes.size();
 			workload->scaleTo(numNodes, executingNumGpusPerNode);
@@ -88,7 +91,7 @@ void Job::setState(JobState newState) {
 			node->removeExpectedJob(this);
 		}
 	}
-	this->state = newState;
+	state = newState;
 }
 
 double Job::getWalltime() const {

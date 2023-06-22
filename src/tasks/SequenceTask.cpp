@@ -13,7 +13,7 @@
 #include <utility>
 #include <xbt.h>
 #include "Job.h"
-#include "Utility.h"
+#include "Node.h"
 
 XBT_LOG_NEW_DEFAULT_CATEGORY(SequenceTask, "Messages within the Sequence Task");
 
@@ -30,13 +30,14 @@ double SequenceTask::logTaskStart(const Task* task, int iterations) {
 	return simgrid::s4u::Engine::get_clock();
 }
 
-void SequenceTask::logTaskEnd(const Task* task, double start) {
+double SequenceTask::logTaskEnd(const Task* task, double start) {
 	if (task->getName().empty()) {
 		XBT_INFO("Task finished after %f seconds", simgrid::s4u::Engine::get_clock() - start);
 	} else {
 		XBT_INFO("Task %s finished after %f seconds", task->getName().c_str(),
 				 simgrid::s4u::Engine::get_clock() - start);
 	}
+	return simgrid::s4u::Engine::get_clock() - start;
 }
 
 double SequenceTask::logIterationStart(int iterations, int i) {
@@ -71,7 +72,7 @@ void SequenceTask::execute(const Node* node, const Job* job, const std::vector<N
 			}
 			logIterationEnd(iterations, i, iterationStart);
 		}
-		logTaskEnd(task.get(), taskStart);
+		node->logTaskTime(job, task.get(), logTaskEnd(task.get(), taskStart));
 	}
 	for (auto& activity: asyncActivities) {
 		activity->wait();

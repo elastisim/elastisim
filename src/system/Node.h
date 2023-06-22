@@ -61,6 +61,7 @@ private:
 	simgrid::s4u::MutexPtr gpuLinkMutex;
 	std::set<Job*> expectedJobs;
 	bool allowOversubscription;
+	std::ofstream& taskTimes;
 
 	void handleWorkloadCompletion(Job* job);
 
@@ -85,7 +86,7 @@ private:
 public:
 	Node(int id, NodeType type, s4u_Host* host, s4u_Disk* nodeLocalBurstBuffer, std::vector<s4u_Host*> pfsHosts,
 		 double flopsPerByte, std::vector<std::unique_ptr<Gpu>> gpus, long gpuToGpuBandwidth,
-		 std::ofstream& nodeUtilizationOutput);
+		 std::ofstream& nodeUtilizationOutput, std::ofstream& taskTimes);
 
 	int getId() const;
 
@@ -132,6 +133,8 @@ public:
 	void expectJob(Job* job);
 
 	void removeExpectedJob(Job* job);
+
+	void logTaskTime(const Job* job, const Task* task, double duration) const;
 
 	void act();
 

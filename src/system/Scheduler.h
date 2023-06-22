@@ -39,6 +39,7 @@ private:
 	bool scheduleOnJobFinalize;
 	bool scheduleOnSchedulingPoint;
 	std::vector<Job*> jobQueue;
+	std::vector<Job*> modifiedJobs;
 	std::map<Job*, simgrid::s4u::ActorPtr> walltimeMonitors;
 	std::map<Job*, std::set<Node*>> assignedNodes;
 	int currentJobId;
@@ -52,6 +53,8 @@ private:
 	void forwardJobKill(Job* job, bool exceededWalltime);
 
 	void forwardJobAllocation(Job* job);
+
+	void handleReconfiguration(Job* job);
 
 	void handleSchedulingPoint(Job* job, Node* node, int completedPhases, int remainingIterations);
 

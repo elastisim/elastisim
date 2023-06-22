@@ -23,6 +23,7 @@ class PlatformManager {
 private:
 	static std::vector<std::unique_ptr<Node>> nodes;
 	static std::vector<Node*> computeNodes;
+	static std::vector<Node*> modifiedComputeNodes;
 	static std::vector<s4u_Link*> pfsReadLinks;
 	static std::vector<s4u_Link*> pfsWriteLinks;
 	static double pfsReadBandwidth;
@@ -33,6 +34,12 @@ public:
 	static void init(std::vector<std::unique_ptr<Node>> initialNodes);
 
 	static const std::vector<Node*>& getComputeNodes();
+
+	static const std::vector<Node*>& getModifiedComputeNodes();
+
+	static void addModifiedComputeNode(Node* node);
+
+	static void clearModifiedComputeNodes();
 
 	static double getPfsReadUtilization();
 

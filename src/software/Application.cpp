@@ -31,13 +31,14 @@ double Application::logTaskStart(const Task* task, int iterations) {
 	return simgrid::s4u::Engine::get_clock();
 }
 
-void Application::logTaskEnd(const Task* task, double start) {
+double Application::logTaskEnd(const Task* task, double start) {
 	if (task->getName().empty()) {
 		XBT_INFO("Task finished after %f seconds", simgrid::s4u::Engine::get_clock() - start);
 	} else {
 		XBT_INFO("Task %s finished after %f seconds", task->getName().c_str(),
 				 simgrid::s4u::Engine::get_clock() - start);
 	}
+	return simgrid::s4u::Engine::get_clock() - start;
 }
 
 double Application::logIterationStart(int iterations, int i) {
@@ -84,7 +85,7 @@ void Application::executeOneTimePhase(const Phase* phase, const Node* node,
 				}
 				logIterationEnd(iterations, j, iterationStart);
 			}
-			logTaskEnd(task, taskStart);
+			node->logTaskTime(job, task, logTaskEnd(task, taskStart));
 		}
 		if (phase->hasBarrier()) {
 			barrier->wait();
@@ -147,7 +148,7 @@ void Application::operator()() {
 				}
 				logIterationEnd(iterations, i, iterationStart);
 			}
-			logTaskEnd(task, taskStart);
+			node->logTaskTime(job, task, logTaskEnd(task, taskStart));
 			taskQueue.pop_front();
 		}
 		--remainingIterations;

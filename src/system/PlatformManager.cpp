@@ -17,6 +17,7 @@
 
 std::vector<std::unique_ptr<Node>> PlatformManager::nodes;
 std::vector<Node*> PlatformManager::computeNodes;
+std::vector<Node*> PlatformManager::modifiedComputeNodes;
 std::vector<s4u_Link*> PlatformManager::pfsReadLinks;
 std::vector<s4u_Link*> PlatformManager::pfsWriteLinks;
 double PlatformManager::pfsReadBandwidth = 0;
@@ -52,6 +53,18 @@ void PlatformManager::init(std::vector<std::unique_ptr<Node>> initialNodes) {
 
 const std::vector<Node*>& PlatformManager::getComputeNodes() {
 	return computeNodes;
+}
+
+const std::vector<Node*>& PlatformManager::getModifiedComputeNodes() {
+	return modifiedComputeNodes;
+}
+
+void PlatformManager::addModifiedComputeNode(Node* node) {
+	modifiedComputeNodes.push_back(node);
+}
+
+void PlatformManager::clearModifiedComputeNodes() {
+	modifiedComputeNodes.clear();
 }
 
 double PlatformManager::getPfsReadUtilization() {

@@ -38,13 +38,28 @@ Scheduler::Scheduler(s4u_Host* masterHost) :
 void Scheduler::schedule(InvocationType invocationType, Job* requestingJob) {
 	double clock = simgrid::s4u::Engine::get_clock();
 	if (minSchedulingInterval == 0 || clock - lastInvocation >= minSchedulingInterval - EPSILON) {
-		SchedulingInterface::schedule(invocationType, jobQueue, requestingJob);
-		for (auto& job: jobQueue) {
+		std::vector<Job*> scheduledJobs = SchedulingInterface::schedule(invocationType, jobQueue, modifiedJobs, requestingJob);
+		modifiedJobs.clear();
+		if (invocationType == INVOKE_SCHEDULING_POINT) {
+			if (requestingJob->getState() == PENDING_RECONFIGURATION) {
+				handleReconfiguration(requestingJob);
+			} else {
+				// continue without reconfiguration
+				s4u_Mailbox* mailboxNode;
+				for (auto& node: requestingJob->getExecutingNodes()) {
+					assignedNodes[requestingJob].insert(node);
+					mailboxNode = s4u_Mailbox::by_name(node->getHostName());
+					mailboxNode->put(new NodeMsg(NODE_CONTINUE, requestingJob), 0);
+				}
+			}
+		}
+		for (auto& job: scheduledJobs) {
 			if (job->getState() == PENDING_ALLOCATION) {
 				forwardJobAllocation(job);
 			} else if (job->getState() == PENDING_KILL) {
 				forwardJobKill(job, false);
 			}
+			modifiedJobs.push_back(job);
 		}
 		lastInvocation = clock;
 	}
@@ -53,6 +68,7 @@ void Scheduler::schedule(InvocationType invocationType, Job* requestingJob) {
 void Scheduler::handleJobSubmit(Job* job) {
 	job->setId(currentJobId++);
 	job->setState(PENDING);
+	modifiedJobs.push_back(job);
 	jobQueue.push_back(job);
 	if (scheduleOnJobSubmit) {
 		schedule(INVOKE_JOB_SUBMIT, job);
@@ -69,6 +85,7 @@ void Scheduler::handleProcessedWorkload(Job* job, Node* node) {
 		}
 		job->completeWorkload();
 		job->setState(COMPLETED);
+		modifiedJobs.push_back(job);
 		if (job->getWalltime() > 0) {
 			walltimeMonitors[job]->kill();
 			walltimeMonitors.erase(job);
@@ -89,6 +106,7 @@ void Scheduler::forwardJobKill(Job* job, bool exceededWalltime) {
 		mailboxNode->put(new NodeMsg(NODE_KILL, job), 0);
 	}
 	job->setState(KILLED);
+	modifiedJobs.push_back(job);
 	s4u_Mailbox* mailboxSimulator = s4u_Mailbox::by_name("SimulationEngine");
 	mailboxSimulator->put(new SimMsg(JOB_KILLED, job->getId()), 0);
 	if (exceededWalltime && scheduleOnJobFinalize) {
@@ -100,6 +118,7 @@ void Scheduler::forwardJobAllocation(Job* job) {
 	s4u_Mailbox* mailboxNode;
 	int rank = 0;
 	job->setState(RUNNING);
+	modifiedJobs.push_back(job);
 	simgrid::s4u::BarrierPtr barrier = s4u_Barrier::create(job->getNumberOfExecutingNodes());
 	for (auto& node: job->getExecutingNodes()) {
 		assignedNodes[job].insert(node);
@@ -112,71 +131,72 @@ void Scheduler::forwardJobAllocation(Job* job) {
 	}
 }
 
+void Scheduler::handleReconfiguration(Job* job) {
+	s4u_Mailbox* mailboxNode;
+	// continue with reconfiguration
+	std::set<Node*> previousNodes(std::begin(job->getExecutingNodes()),
+								  std::end(job->getExecutingNodes()));
+
+	// setting the state implies taking over new nodes
+	job->setState(IN_RECONFIGURATION);
+	std::set<Node*> newNodes(std::begin(job->getExecutingNodes()),
+							 std::end(job->getExecutingNodes()));
+
+	int rank = 0;
+	std::map<std::string, int> ranks;
+	std::vector<Node*> expandNodes;
+	simgrid::s4u::BarrierPtr barrier = s4u_Barrier::create(job->getExecutingNodes().size());
+
+	// reconfigure retained nodes or accumulate new nodes to expand
+	for (auto& node: job->getExecutingNodes()) {
+		assignedNodes[job].insert(node);
+		if (previousNodes.find(node) != previousNodes.end()) {
+			mailboxNode = s4u_Mailbox::by_name(node->getHostName());
+			mailboxNode->put(new NodeMsg(NODE_RECONFIGURE, job, rank++, barrier), 0);
+		} else {
+			expandNodes.push_back(node);
+			ranks[node->getHostName()] = rank++;
+		}
+	}
+
+	// set and inform expanding nodes for eventual initialization tasks
+	int expandRank = 0;
+	job->setExpandNodes(expandNodes);
+	simgrid::s4u::BarrierPtr expandBarrier = s4u_Barrier::create(expandNodes.size());
+	for (auto& node: expandNodes) {
+		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
+		mailboxNode->put(new NodeMsg(NODE_EXPAND, job, ranks[node->getHostName()],
+									 expandRank++, barrier, expandBarrier), 0);
+	}
+
+	// deallocate nodes which are no longer assigned in this configuration
+	for (auto& node: previousNodes) {
+		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
+		if (newNodes.find(node) == newNodes.end()) {
+			mailboxNode->put(new NodeMsg(NODE_DEALLOCATE, job), 0);
+		}
+	}
+}
+
 void Scheduler::handleSchedulingPoint(Job* job, Node* node, int completedPhases, int remainingIterations) {
 	assignedNodes[job].erase(node);
 	if (assignedNodes[job].empty()) {
-
 		job->advanceWorkload(completedPhases, remainingIterations);
-
+		modifiedJobs.push_back(job);
 		if (scheduleOnSchedulingPoint) {
 			schedule(INVOKE_SCHEDULING_POINT, job);
-		}
-
-		s4u_Mailbox* mailboxNode;
-		if (job->getState() == PENDING_RECONFIGURATION) {
-
-			// continue with reconfiguration
-			std::set<Node*> previousNodes(std::begin(job->getExecutingNodes()),
-										  std::end(job->getExecutingNodes()));
-
-			// setting the state implies taking over new nodes
-			job->setState(IN_RECONFIGURATION);
-
-			std::set<Node*> newNodes(std::begin(job->getExecutingNodes()),
-									 std::end(job->getExecutingNodes()));
-
-			int rank = 0;
-			std::map<std::string, int> ranks;
-			std::vector<Node*> expandNodes;
-			simgrid::s4u::BarrierPtr barrier = s4u_Barrier::create(job->getExecutingNodes().size());
-
-			// reconfigure retained nodes or accumulate new nodes to expand
-			for (auto& node: job->getExecutingNodes()) {
-				assignedNodes[job].insert(node);
-				if (previousNodes.find(node) != previousNodes.end()) {
-					mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-					mailboxNode->put(new NodeMsg(NODE_RECONFIGURE, job, rank++, barrier), 0);
-				} else {
-					expandNodes.push_back(node);
-					ranks[node->getHostName()] = rank++;
-				}
-			}
-
-			// set and inform expanding nodes for eventual initialization tasks
-			int expandRank = 0;
-			job->setExpandNodes(expandNodes);
-			simgrid::s4u::BarrierPtr expandBarrier = s4u_Barrier::create(expandNodes.size());
-			for (auto& node: expandNodes) {
-				mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-				mailboxNode->put(new NodeMsg(NODE_EXPAND, job, ranks[node->getHostName()],
-											 expandRank++, barrier, expandBarrier), 0);
-			}
-
-			// deallocate nodes which are no longer assigned in this configuration
-			for (auto& node: previousNodes) {
-				mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-				if (newNodes.find(node) == newNodes.end()) {
-					mailboxNode->put(new NodeMsg(NODE_DEALLOCATE, job), 0);
-				}
-			}
 		} else {
-			// continue without reconfiguration
-			for (auto& node: job->getExecutingNodes()) {
-				assignedNodes[job].insert(node);
-				mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-				mailboxNode->put(new NodeMsg(NODE_CONTINUE, job), 0);
+			if (job->getState() == PENDING_RECONFIGURATION) {
+				handleReconfiguration(job);
+			} else {
+				// continue without reconfiguration
+				s4u_Mailbox* mailboxNode;
+				for (auto& node: job->getExecutingNodes()) {
+					assignedNodes[job].insert(node);
+					mailboxNode = s4u_Mailbox::by_name(node->getHostName());
+					mailboxNode->put(new NodeMsg(NODE_CONTINUE, job), 0);
+				}
 			}
-
 		}
 	}
 }

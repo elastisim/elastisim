@@ -21,6 +21,7 @@
 #include "NodeMsg.h"
 #include "AsyncSleep.h"
 #include "Configuration.h"
+#include "PlatformManager.h"
 
 XBT_LOG_NEW_DEFAULT_CATEGORY(ComputeNode, "Messages within the Compute Node actor");
 
@@ -32,7 +33,8 @@ void Node::handleWorkloadCompletion(Job* job) {
 
 void Node::handleJobAllocation(Job* job, int rank, const simgrid::s4u::BarrierPtr& jobBarrier) {
 	if (!allowOversubscription && !runningJobs.empty()) {
-		xbt_die("Node %d already allocated and cannot be assigned to job %d", id, job->getId());
+		xbt_die("Node %d already allocated to job %d and cannot be assigned to job %d", id,
+				(*runningJobs.begin())->getId(), job->getId());
 	}
 	assignedRank[job] = rank;
 	barrier[job] = jobBarrier;
@@ -43,6 +45,7 @@ void Node::handleJobAllocation(Job* job, int rank, const simgrid::s4u::BarrierPt
 	if (!runningJobs.empty()) {
 		state = NODE_ALLOCATED;
 	}
+	PlatformManager::addModifiedComputeNode(this);
 	collectStatistics();
 	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
 										 Application(this, job, assignedRank[job]));
@@ -74,6 +77,7 @@ void Node::expandJob(Job* job, int rank, int expandRank,
 	if (!runningJobs.empty()) {
 		state = NODE_ALLOCATED;
 	}
+	PlatformManager::addModifiedComputeNode(this);
 	collectStatistics();
 	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
 										 Application(this, job, assignedRank[job]));
@@ -84,6 +88,7 @@ void Node::completeJob(Job* job) {
 	if (runningJobs.empty()) {
 		state = NODE_FREE;
 	}
+	PlatformManager::addModifiedComputeNode(this);
 	collectStatistics();
 }
 
@@ -102,6 +107,7 @@ void Node::killJob(Job* job) {
 	if (runningJobs.empty()) {
 		state = NODE_FREE;
 	}
+	PlatformManager::addModifiedComputeNode(this);
 	collectStatistics();
 }
 
@@ -143,11 +149,11 @@ void Node::collectStatistics() {
 
 Node::Node(int id, NodeType type, s4u_Host* host, s4u_Disk* nodeLocalBurstBuffer,
 		   std::vector<s4u_Host*> pfsHosts, double flopsPerByte, std::vector<std::unique_ptr<Gpu>> gpus,
-		   long gpuToGpuBandwidth, std::ofstream& nodeUtilizationOutput) :
+		   long gpuToGpuBandwidth, std::ofstream& nodeUtilizationOutput, std::ofstream& taskTimes) :
 		id(id), type(type), host(host), nodeLocalBurstBuffer(nodeLocalBurstBuffer), state(NODE_FREE),
 		pfsHosts(std::move(pfsHosts)), flopsPerByte(flopsPerByte), gpus(std::move(gpus)),
 		gpuToGpuBandwidth(gpuToGpuBandwidth), nodeUtilizationOutput(nodeUtilizationOutput),
-		allowOversubscription(Configuration::getBoolIfExists("allow_oversubscription")) {
+		allowOversubscription(Configuration::getBoolIfExists("allow_oversubscription")), taskTimes(taskTimes) {
 	for (auto& gpu: Node::gpus) {
 		gpuPointers.push_back(gpu.get());
 	}
@@ -269,6 +275,7 @@ void Node::expectJob(Job* job) {
 	if (state == NODE_FREE) {
 		state = NODE_RESERVED;
 	}
+	PlatformManager::addModifiedComputeNode(this);
 }
 
 void Node::removeExpectedJob(Job* job) {
@@ -276,6 +283,12 @@ void Node::removeExpectedJob(Job* job) {
 	if (expectedJobs.empty() && state == NODE_RESERVED) {
 		state = NODE_FREE;
 	}
+	PlatformManager::addModifiedComputeNode(this);
+}
+
+void Node::logTaskTime(const Job* job, const Task* task, double duration) const {
+	taskTimes << simgrid::s4u::Engine::get_clock() << "," << job->getId() << "," << getHostName() << ","
+			  << task->getName() << "," << duration << std::endl;
 }
 
 void Node::act() {
@@ -284,7 +297,7 @@ void Node::act() {
 	collectStatistics();
 	s4u_Mailbox* mailbox = s4u_Mailbox::by_name(getHostName());
 	gpuLinkMutex = s4u_Mutex::create();
-
+	PlatformManager::addModifiedComputeNode(this);
 	// main loop
 	while (true) {
 		auto payload = mailbox->get_unique<NodeMsg>();

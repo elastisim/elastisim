@@ -13,6 +13,7 @@
 #include <simgrid/s4u.hpp>
 #include <xbt/parse_units.hpp>
 #include <sstream>
+#include <iostream>
 
 #include "PlatformManager.h"
 #include "SimulationEngine.h"
@@ -42,6 +43,14 @@ void ElastiSim::startSimulation(int argc, char* argv[]) {
 
 	std::ofstream nodeUtilization(Configuration::get("node_utilization"));
 	nodeUtilization << "Time,Node,State,Running jobs,Expected jobs" << std::endl;
+
+	std::ofstream taskTimes;
+	if (Configuration::getBoolIfExists("log_task_times")) {
+		taskTimes = std::ofstream(Configuration::get("task_times_file"));
+		taskTimes << "Time,Job,Node,Task,Duration" << std::endl;
+	} else {
+		taskTimes.close();
+	}
 
 	const std::vector<s4u_Host*>& hosts = engine.get_all_hosts();
 	std::vector<s4u_Host*> filteredHosts;
@@ -108,16 +117,16 @@ void ElastiSim::startSimulation(int argc, char* argv[]) {
 				}
 				nodes.emplace_back(
 						std::make_unique<Node>(id++, COMPUTE_NODE_WITH_WIDE_STRIPED_BB, host, disk, pfsTargets,
-											   flopsPerByte, std::move(gpus), gpuToGpuBandwidth, nodeUtilization));
+											   flopsPerByte, std::move(gpus), gpuToGpuBandwidth, nodeUtilization, taskTimes));
 			} else {
 				nodes.emplace_back(
 						std::make_unique<Node>(id++, COMPUTE_NODE_WITH_BB, host, disk, pfsTargets, 0, std::move(gpus),
-											   gpuToGpuBandwidth, nodeUtilization));
+											   gpuToGpuBandwidth, nodeUtilization, taskTimes));
 			}
 		} else {
 			nodes.emplace_back(
 					std::make_unique<Node>(id++, COMPUTE_NODE, host, nullptr, pfsTargets, 0, std::move(gpus),
-										   gpuToGpuBandwidth, nodeUtilization));
+										   gpuToGpuBandwidth, nodeUtilization, taskTimes));
 		}
 		Node* node = nodes.back().get();
 		s4u_Actor::create(hostname, host, [node] { node->act(); });
