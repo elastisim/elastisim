@@ -43,6 +43,6 @@ Task::executeAsync(const Node* node, const Job* job, const std::vector<Node*>& n
 	xbt_die("Task does not support asynchronous execution");
 }
 
-void Task::scaleTo(int numNodes, int numGpusPerNode) {
-	iterations = (int) Utility::evaluateFormula(iterationModel, numNodes, numGpusPerNode);
+void Task::scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) {
+	iterations = (int) Utility::evaluateFormula(iterationModel, numNodes, numGpusPerNode, runtimeArguments);
 }

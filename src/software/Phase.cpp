@@ -15,12 +15,12 @@ Phase::Phase(std::deque<std::unique_ptr<Task>> tasks, int iterations, bool sched
 			 bool barrier) : tasks(std::move(tasks)), iterations(iterations),
 							 schedulingPoint(schedulingPoint), finalSchedulingPoint(finalSchedulingPoint),
 							 barrier(barrier) {
-	for (auto& task: Phase::tasks) {
+	for (const auto& task: Phase::tasks) {
 		taskPointers.push_back(task.get());
 	}
 }
 
-const std::deque<Task*>& Phase::getTasks() const {
+const std::deque<const Task*>& Phase::getTasks() const {
 	return taskPointers;
 }
 
@@ -44,8 +44,8 @@ bool Phase::hasBarrier() const {
 	return barrier;
 }
 
-void Phase::scaleTo(int numNodes, int numGpusPerNode) {
-	for (auto& task: tasks) {
-		task->scaleTo(numNodes, numGpusPerNode);
+void Phase::scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) {
+	for (const auto& task: tasks) {
+		task->scaleTo(numNodes, numGpusPerNode, runtimeArguments);
 	}
 }

@@ -14,20 +14,17 @@
 #include "Utility.h"
 
 IoTask::IoTask(const std::string& name, const std::string& iterations, bool synchronized, bool asynchronous,
-			   std::vector<double> ioSizes, VectorPattern ioPattern) :
-		Task(name, iterations, synchronized), asynchronous(asynchronous), ioSizes(std::move(ioSizes)),
-		ioPattern(ioPattern) {}
-
-IoTask::IoTask(const std::string& name, const std::string& iterations, bool synchronized, bool asynchronous,
-			   std::string ioModel, VectorPattern ioPattern) :
-		Task(name, iterations, synchronized), asynchronous(asynchronous), ioModel(std::move(ioModel)),
-		ioPattern(ioPattern) {}
+			   std::optional<std::vector<double>> ioSizes, std::optional<std::string> ioModel,
+			   VectorPattern ioPattern) :
+		Task(name, iterations, synchronized), asynchronous(asynchronous),
+		ioSizes(ioSizes.has_value() ? std::move(ioSizes.value()) : std::vector<double>()),
+		ioModel(ioModel.has_value() ? std::move(ioModel.value()) : ""), ioPattern(ioPattern) {}
 
 bool IoTask::isAsynchronous() const {
 	return asynchronous;
 }
 
-void IoTask::scaleTo(int numNodes, int numGpusPerNode) {
-	Task::scaleTo(numNodes, numGpusPerNode);
-	ioSizes = Utility::createVector(ioModel, ioPattern, numNodes, numGpusPerNode);
+void IoTask::scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) {
+	Task::scaleTo(numNodes, numGpusPerNode, runtimeArguments);
+	ioSizes = Utility::createVector(ioModel, ioPattern, numNodes, numGpusPerNode, runtimeArguments);
 }

@@ -54,21 +54,21 @@ public:
 
 	explicit NodeMsg(NodeEvent type);
 
-	NodeEvent getType() const;
+	[[nodiscard]] NodeEvent getType() const;
 
-	Job* getJob() const;
+	[[nodiscard]] Job* getJob() const;
 
-	int getRank() const;
+	[[nodiscard]] int getRank() const;
 
-	int getExpandRank() const;
+	[[nodiscard]] int getExpandRank() const;
 
-	const simgrid::s4u::BarrierPtr& getBarrier() const;
+	[[nodiscard]] const simgrid::s4u::BarrierPtr& getBarrier() const;
 
-	const simgrid::s4u::BarrierPtr& getExpandBarrier() const;
+	[[nodiscard]] const simgrid::s4u::BarrierPtr& getExpandBarrier() const;
 
-	int getCompletedPhases() const;
+	[[nodiscard]] int getCompletedPhases() const;
 
-	int getRemainingIterations() const;
+	[[nodiscard]] int getRemainingIterations() const;
 
 };
 

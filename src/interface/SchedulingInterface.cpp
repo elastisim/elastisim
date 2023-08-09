@@ -19,7 +19,7 @@ XBT_LOG_NEW_DEFAULT_CATEGORY(SchedulingInterface, "Messages within the schedulin
 zmq::context_t SchedulingInterface::context;
 zmq::socket_t SchedulingInterface::socket(context, zmq::socket_type::pair);
 
-void SchedulingInterface::invokeScheduling(InvocationType invocationType, const std::vector<Job*>& jobQueue,
+void SchedulingInterface::invokeScheduling(InvocationType invocationType, const std::vector<Job*>& modifiedJobs,
 										   const Job* requestingJob) {
 	std::vector<Node*> nodes = PlatformManager::getModifiedComputeNodes();
 	nlohmann::json message;
@@ -30,11 +30,11 @@ void SchedulingInterface::invokeScheduling(InvocationType invocationType, const 
 		message["job_id"] = requestingJob->getId();
 	}
 	message["jobs"] = nlohmann::json::array();
-	for (auto& job: jobQueue) {
+	for (const auto& job: modifiedJobs) {
 		message["jobs"].push_back(job->toJson());
 	}
 	message["nodes"] = nlohmann::json::array();
-	for (auto& node: nodes) {
+	for (const auto& node: nodes) {
 		message["nodes"].push_back(node->toJson());
 	}
 	message["pfs_read_bw"] = PlatformManager::getPfsReadBandwidth();
@@ -54,17 +54,21 @@ std::vector<Job*>
 SchedulingInterface::handleSchedule(const nlohmann::json& jsonJobs, const std::vector<Job*>& jobQueue) {
 	const std::vector<Node*>& nodes = PlatformManager::getComputeNodes();
 	std::vector<Job*> scheduledJobs;
-	for (auto& jsonJob: jsonJobs) {
+	for (const auto& jsonJob: jsonJobs) {
 		Job* job = jobQueue[jsonJob["id"]];
 		if (jsonJob["kill_flag"]) {
 			job->setState(PENDING_KILL);
 		} else {
 			job->clearAssignedNodes();
-			for (auto& jsonNodeId: jsonJob["assigned_node_ids"]) {
+			for (const auto& jsonNodeId: jsonJob["assigned_node_ids"]) {
 				job->assignNode(nodes[jsonNodeId]);
 			}
 			if (job->getType() != RIGID) {
 				job->assignNumGpusPerNode(jsonJob["assigned_num_gpus_per_node"]);
+			}
+			job->clearRuntimeArguments();
+			for (const auto& mapping: jsonJob["runtime_arguments"].items()) {
+				job->updateRuntimeArguments(mapping.key(), mapping.value());
 			}
 			job->checkConfigurationValidity();
 			job->updateState();
@@ -82,7 +86,10 @@ std::vector<Job*> SchedulingInterface::schedule(InvocationType invocationType, c
 
 	invokeScheduling(invocationType, modifiedJobs, requestingJob);
 
-	socket.recv(message, zmq::recv_flags::none);
+	std::optional<size_t> result = socket.recv(message, zmq::recv_flags::none);
+	if (!result) {
+		xbt_die("ZeroMQ communication failed");
+	}
 	json = nlohmann::json::parse(message.to_string());
 	if (json["code"] == ZMQ_SCHEDULED) {
 		return handleSchedule(json["jobs"], jobQueue);

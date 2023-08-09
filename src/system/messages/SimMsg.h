@@ -37,13 +37,13 @@ public:
 
 	SimMsg(SimEventType type, int jobId);
 
-	SimEventType getType() const;
+	[[nodiscard]] SimEventType getType() const;
 
-	size_t getNumberOfJobs() const;
+	[[nodiscard]] size_t getNumberOfJobs() const;
 
-	std::unique_ptr<Job> getJob();
+	[[nodiscard]] std::unique_ptr<Job> getJob();
 
-	int getJobId() const;
+	[[nodiscard]] int getJobId() const;
 };
 
 

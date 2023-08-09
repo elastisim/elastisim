@@ -33,21 +33,21 @@ private:
 public:
 	static void init(std::vector<std::unique_ptr<Node>> initialNodes);
 
-	static const std::vector<Node*>& getComputeNodes();
+	[[nodiscard]] static const std::vector<Node*>& getComputeNodes();
 
-	static const std::vector<Node*>& getModifiedComputeNodes();
+	[[nodiscard]] static const std::vector<Node*>& getModifiedComputeNodes();
 
 	static void addModifiedComputeNode(Node* node);
 
 	static void clearModifiedComputeNodes();
 
-	static double getPfsReadUtilization();
+	[[nodiscard]] static double getPfsReadUtilization();
 
-	static double getPfsWriteUtilization();
+	[[nodiscard]] static double getPfsWriteUtilization();
 
-	static double getPfsReadBandwidth();
+	[[nodiscard]] static double getPfsReadBandwidth();
 
-	static double getPfsWriteBandwidth();
+	[[nodiscard]] static double getPfsWriteBandwidth();
 
 };
 

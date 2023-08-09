@@ -16,17 +16,13 @@
 
 XBT_LOG_NEW_DEFAULT_CATEGORY(PfsReadTask, "Messages within the PFS read task");
 
-
 PfsReadTask::PfsReadTask(const std::string& name, const std::string& iterations, bool synchronized, bool asynchronous,
-						 const std::vector<double>& ioSizes, VectorPattern ioPattern) :
-		IoTask(name, iterations, synchronized, asynchronous, ioSizes, ioPattern) {}
+						 const std::optional<std::vector<double>>& ioSizes, const std::optional<std::string>& ioModel,
+						 VectorPattern ioPattern) :
+		IoTask(name, iterations, synchronized, asynchronous, ioSizes, ioModel, ioPattern) {}
 
-PfsReadTask::PfsReadTask(const std::string& name, const std::string& iterations, bool synchronized, bool asynchronous,
-						 const std::string& ioModel, VectorPattern ioPattern) :
-		IoTask(name, iterations, synchronized, asynchronous, ioModel, ioPattern) {}
-
-void PfsReadTask::execute(const Node* node, const Job* job,
-						  const std::vector<Node*>& nodes, int rank, simgrid::s4u::BarrierPtr barrier) const {
+void PfsReadTask::execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
+						  simgrid::s4u::BarrierPtr barrier) const {
 	if (ioSizes[rank] > 0) {
 		XBT_INFO("Reading %f bytes from PFS", ioSizes[rank]);
 	}
@@ -60,6 +56,7 @@ PfsReadTask::executeAsync(const Node* node, const Job* job,
 		payloads[i] = payloadPerHost;
 	}
 	simgrid::s4u::ActivityPtr activity = simgrid::s4u::this_actor::exec_init(hosts, empty, payloads);
+	activity->start();
 	return {activity};
 }
 

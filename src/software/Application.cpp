@@ -16,46 +16,15 @@
 #include "Node.h"
 #include "Task.h"
 #include "NodeMsg.h"
+#include "Utility.h"
 
 
 XBT_LOG_NEW_DEFAULT_CATEGORY(Application, "Messages within the application");
 
 Application::Application(Node* node, Job* job, int rank) : node(node), job(job), rank(rank) {}
 
-double Application::logTaskStart(const Task* task, int iterations) {
-	if (task->getName().empty()) {
-		XBT_INFO("Starting task with %d iteration(s)...", iterations);
-	} else {
-		XBT_INFO("Starting task %s with %d iteration(s)...", task->getName().c_str(), iterations);
-	}
-	return simgrid::s4u::Engine::get_clock();
-}
-
-double Application::logTaskEnd(const Task* task, double start) {
-	if (task->getName().empty()) {
-		XBT_INFO("Task finished after %f seconds", simgrid::s4u::Engine::get_clock() - start);
-	} else {
-		XBT_INFO("Task %s finished after %f seconds", task->getName().c_str(),
-				 simgrid::s4u::Engine::get_clock() - start);
-	}
-	return simgrid::s4u::Engine::get_clock() - start;
-}
-
-double Application::logIterationStart(int iterations, int i) {
-	if (iterations > 1) {
-		XBT_INFO("Executing iteration %d of %d...", i, iterations);
-	}
-	return simgrid::s4u::Engine::get_clock();
-}
-
-void Application::logIterationEnd(int iterations, int i, double start) {
-	if (iterations > 1) {
-		XBT_INFO("Finished iteration %d after %f seconds", i, simgrid::s4u::Engine::get_clock() - start);
-	}
-}
-
 void Application::waitForAsyncActivities(const std::vector<simgrid::s4u::ActivityPtr>& asyncActivities) {
-	for (auto& activity: asyncActivities) {
+	for (const auto& activity: asyncActivities) {
 		activity->wait();
 	}
 }
@@ -69,11 +38,11 @@ void Application::executeOneTimePhase(const Phase* phase, const Node* node,
 	}
 	std::vector<simgrid::s4u::ActivityPtr> asyncActivities;
 	for (int i = 0; i < phase->getIterations(); ++i) {
-		for (auto& task: phase->getTasks()) {
+		for (const auto& task: phase->getTasks()) {
 			int iterations = task->getIterations();
-			double taskStart = logTaskStart(task, iterations);
+			double taskStart = Utility::logTaskStart(task, iterations);
 			for (int j = 0; j < iterations; ++j) {
-				double iterationStart = logIterationStart(iterations, j);
+				double iterationStart = Utility::logIterationStart(iterations, j);
 				if (task->isSynchronized()) {
 					barrier->wait();
 				}
@@ -83,15 +52,15 @@ void Application::executeOneTimePhase(const Phase* phase, const Node* node,
 				} else {
 					task->execute(node, job, nodes, rank, barrier);
 				}
-				logIterationEnd(iterations, j, iterationStart);
+				Utility::logIterationEnd(iterations, j, iterationStart);
 			}
-			node->logTaskTime(job, task, logTaskEnd(task, taskStart));
+			node->logTaskTime(job, task, Utility::logTaskEnd(task, taskStart));
 		}
 		if (phase->hasBarrier()) {
 			barrier->wait();
 		}
 	}
-	for (auto& activity: asyncActivities) {
+	for (const auto& activity: asyncActivities) {
 		activity->wait();
 	}
 }
@@ -120,8 +89,8 @@ void Application::operator()() {
 		node->markExpanded(job);
 	}
 
-	std::deque<Phase*> phaseQueue = job->getWorkload()->getPhases();
-	Phase* phase = phaseQueue.front();
+	std::deque<const Phase*> phaseQueue = job->getWorkload()->getPhases();
+	const Phase* phase = phaseQueue.front();
 	int remainingIterations = phase->getIterations();
 	int completedPhases = 0;
 
@@ -129,13 +98,13 @@ void Application::operator()() {
 	std::vector<simgrid::s4u::ActivityPtr> asyncActivities;
 
 	while (remainingIterations > 0) {
-		std::deque<Task*> taskQueue = phase->getTasks();
+		std::deque<const Task*> taskQueue = phase->getTasks();
 		while (!taskQueue.empty()) {
 			const Task* task = taskQueue.front();
 			int iterations = task->getIterations();
-			double taskStart = logTaskStart(task, iterations);
+			double taskStart = Utility::logTaskStart(task, iterations);
 			for (int i = 0; i < iterations; ++i) {
-				double iterationStart = logIterationStart(iterations, i);
+				double iterationStart = Utility::logIterationStart(iterations, i);
 				if (task->isSynchronized()) {
 					barrier->wait();
 				}
@@ -146,9 +115,9 @@ void Application::operator()() {
 				} else {
 					task->execute(node, job, job->getExecutingNodes(), rank, barrier);
 				}
-				logIterationEnd(iterations, i, iterationStart);
+				Utility::logIterationEnd(iterations, i, iterationStart);
 			}
-			node->logTaskTime(job, task, logTaskEnd(task, taskStart));
+			node->logTaskTime(job, task, Utility::logTaskEnd(task, taskStart));
 			taskQueue.pop_front();
 		}
 		--remainingIterations;

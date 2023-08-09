@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(elastisim)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 include_directories(${SIMGRID_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/interface ${PROJECT_SOURCE_DIR}/src/software ${PROJECT_SOURCE_DIR}/src/system ${PROJECT_SOURCE_DIR}/src/system/messages ${PROJECT_SOURCE_DIR}/src/tasks ${PROJECT_SOURCE_DIR}/src/util ${PROJECT_SOURCE_DIR}/third-party/exprtk ${PROJECT_SOURCE_DIR}/third-party/nlohmann_json)
 

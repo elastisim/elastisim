@@ -16,15 +16,11 @@
 XBT_LOG_NEW_DEFAULT_CATEGORY(BusyWaitTask, "Messages within the busy wait task");
 
 BusyWaitTask::BusyWaitTask(const std::string& name, const std::string& iterations, bool synchronized,
-						   const std::vector<double>& delays, VectorPattern delayPattern) :
-		DelayTask(name, iterations, synchronized, delays, delayPattern) {}
+						   const std::optional<std::vector<double>>& delays,
+						   const std::optional<std::string>& delayModel, VectorPattern delayPattern) :
+		DelayTask(name, iterations, synchronized, delays, delayModel, delayPattern) {}
 
-BusyWaitTask::BusyWaitTask(const std::string& name, const std::string& iterations, bool synchronized,
-						   const std::string& delayModel, VectorPattern delayPattern) :
-		DelayTask(name, iterations, synchronized, delayModel, delayPattern) {}
-
-void BusyWaitTask::execute(const Node* node, const Job* job,
-						   const std::vector<Node*>& nodes, int rank,
+void BusyWaitTask::execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
 						   simgrid::s4u::BarrierPtr barrier) const {
 	XBT_INFO("Waiting %f seconds", delays[rank]);
 	node->getHost()->execute(delays[rank] * node->getHost()->get_speed());

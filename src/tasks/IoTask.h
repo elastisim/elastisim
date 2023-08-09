@@ -25,19 +25,15 @@ protected:
 	VectorPattern ioPattern;
 
 public:
-	IoTask(const std::string& name, const std::string& iterations, bool synchronized, bool asynchronous, std::vector<double> ioSizes,
-		   VectorPattern ioPattern);
+	IoTask(const std::string& name, const std::string& iterations, bool synchronized, bool asynchronous,
+		   std::optional<std::vector<double>> ioSizes, std::optional<std::string> ioModel, VectorPattern ioPattern);
 
-	IoTask(const std::string& name, const std::string& iterations, bool synchronized, bool asynchronous, std::string ioModel,
-		   VectorPattern ioPattern);
+	[[nodiscard]] bool isAsynchronous() const override;
 
-	bool isAsynchronous() const override;
-
-	void execute(const Node* node, const Job* job,
-				 const std::vector<Node*>& nodes, int rank,
+	void execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
 				 simgrid::s4u::BarrierPtr barrier) const override = 0;
 
-	void scaleTo(int numNodes, int numGpusPerNode) override;
+	void scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) override;
 
 };
 

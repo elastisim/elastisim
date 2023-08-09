@@ -19,40 +19,30 @@
 XBT_LOG_NEW_DEFAULT_CATEGORY(CombinedGpuTask, "Messages within the combined GPU task");
 
 CombinedGpuTask::CombinedGpuTask(const std::string& name, const std::string& iterations, bool synchronized,
-								 const std::vector<double>& flops, std::vector<double> intraNodeCommunications,
-								 std::vector<double> interNodeCommunications) :
-		CombinedTask(name, iterations, synchronized, flops),
-		intraNodeCommunications(std::move(intraNodeCommunications)),
-		interNodeCommunications(std::move(interNodeCommunications)) {}
+								 const std::optional<std::vector<double>>& flops,
+								 const std::optional<std::string>& computationModel, VectorPattern computationPattern,
+								 const std::optional<std::string>& communicationModel,
+								 MatrixPattern communicationPattern,
+								 std::optional<std::vector<double>> intraNodeCommunications,
+								 std::optional<std::vector<double>> interNodeCommunications) :
+		CombinedTask(name, iterations, synchronized, flops, computationModel, computationPattern, communicationModel,
+					 communicationPattern),
+		intraNodeCommunications(intraNodeCommunications.has_value() ? std::move(intraNodeCommunications.value())
+																	: std::vector<double>()),
+		interNodeCommunications(interNodeCommunications.has_value() ? std::move(interNodeCommunications.value())
+																	: std::vector<double>()) {
+	if (intraNodeCommunications.has_value() != interNodeCommunications.has_value()) {
+		xbt_die("Specifying only one of intra- or inter-node communication is invalid.");
+	}
+}
 
-CombinedGpuTask::CombinedGpuTask(const std::string& name, const std::string& iterations, bool synchronized,
-								 const std::vector<double>& flops, const std::string& communicationModel,
-								 MatrixPattern communicationPattern) :
-		CombinedTask(name, iterations, synchronized, flops, communicationModel, communicationPattern) {}
-
-CombinedGpuTask::CombinedGpuTask(const std::string& name, const std::string& iterations, bool synchronized,
-								 const std::string& computationModel, VectorPattern computationPattern,
-								 std::vector<double> intraNodeCommunications,
-								 std::vector<double> interNodeCommunications) :
-		CombinedTask(name, iterations, synchronized, computationModel, computationPattern),
-		intraNodeCommunications(std::move(intraNodeCommunications)),
-		interNodeCommunications(std::move(interNodeCommunications)) {}
-
-CombinedGpuTask::CombinedGpuTask(const std::string& name, const std::string& iterations, bool synchronized,
-								 const std::string& computationModel, VectorPattern computationPattern,
-								 const std::string& communicationModel,
-								 MatrixPattern communicationPattern) :
-		CombinedTask(name, iterations, synchronized, computationModel, computationPattern, communicationModel,
-					 communicationPattern) {}
-
-void CombinedGpuTask::execute(const Node* node, const Job* job,
-							  const std::vector<Node*>& nodes, int rank,
+void CombinedGpuTask::execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
 							  simgrid::s4u::BarrierPtr barrier) const {
 
 	std::vector<s4u_Mailbox*> gpuCallbacks;
 	s4u_Mailbox* gpuLinkCallback = s4u_Mailbox::by_name("GPULink@" + node->getHostName());
 	int numGpusPerNode = job->getExecutingNumGpusPerNode();
-	std::vector<Gpu*> gpus = node->getGpus();
+	std::vector<const Gpu*> gpus = node->getGpus();
 	if (numGpusPerNode == 0) {
 		xbt_die("GPU task not executable: no GPUs assigned");
 	}
@@ -62,24 +52,7 @@ void CombinedGpuTask::execute(const Node* node, const Job* job,
 
 	if (!flops.empty() && flops[rank] > 0) {
 		double flopsPerGpu = flops[rank] / numGpusPerNode;
-		if (numGpusPerNode == 1) {
-			XBT_INFO("Processing %f FLOPS on one GPU", flops[rank]);
-		} else {
-			XBT_INFO("Processing %f FLOPS on %u GPUs (%f each)", flops[rank], numGpusPerNode, flopsPerGpu);
-		}
-		std::vector<Gpu*> gpuCandidates;
-		std::vector<Gpu*> allocatedGpus;
-		for (auto& gpu: gpus) {
-			if (gpu->getState() == GPU_FREE) {
-				gpuCandidates.push_back(gpu);
-			} else {
-				allocatedGpus.push_back(gpu);
-			}
-		}
-		gpuCandidates.insert(std::end(gpuCandidates), std::begin(allocatedGpus), std::end(allocatedGpus));
-		for (int i = 0; i < numGpusPerNode; ++i) {
-			gpuCallbacks.push_back(gpuCandidates[i]->execAsync(flopsPerGpu));
-		}
+		gpuCallbacks = node->execGpuComputationAsync(numGpusPerNode, flopsPerGpu);
 	}
 
 	if (!intraNodeCommunications.empty()) {
@@ -89,7 +62,7 @@ void CombinedGpuTask::execute(const Node* node, const Job* job,
 	if (!interNodeCommunications.empty()) {
 		size_t numberOfAssignedNodes = nodes.size();
 		int destinationRank = 0;
-		for (auto& assignedNode: nodes) {
+		for (const auto& assignedNode: nodes) {
 			int index = rank * numberOfAssignedNodes + destinationRank++;
 			if (interNodeCommunications[index] > 0) {
 				XBT_INFO("Sending %f bytes to %s", interNodeCommunications[index], assignedNode->getHostName().c_str());
@@ -106,7 +79,7 @@ void CombinedGpuTask::execute(const Node* node, const Job* job,
 		}
 		barrier->wait();
 	}
-	for (auto& gpuCallback: gpuCallbacks) {
+	for (const auto& gpuCallback: gpuCallbacks) {
 		gpuCallback->get<void>();
 	}
 	if (!intraNodeCommunications.empty()) {
@@ -114,10 +87,12 @@ void CombinedGpuTask::execute(const Node* node, const Job* job,
 	}
 }
 
-void CombinedGpuTask::scaleTo(int numNodes, int numGpusPerNode) {
-	CombinedTask::scaleTo(numNodes, numGpusPerNode);
+void
+CombinedGpuTask::scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) {
+	CombinedTask::scaleTo(numNodes, numGpusPerNode, runtimeArguments);
 	if (!communicationModel.empty()) {
 		std::tie(intraNodeCommunications, interNodeCommunications) =
-				Utility::createMatrices(communicationModel, communicationPattern, numNodes, numGpusPerNode);
+				Utility::createMatrices(communicationModel, communicationPattern, numNodes, numGpusPerNode,
+										runtimeArguments);
 	}
 }

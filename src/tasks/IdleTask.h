@@ -18,13 +18,11 @@ class IdleTask : public DelayTask {
 
 public:
 	IdleTask(const std::string& name, const std::string& iterations, bool synchronized,
-			 const std::vector<double>& delays, VectorPattern delayPattern);
-
-	IdleTask(const std::string& name, const std::string& iterations, bool synchronized, const std::string& delayModel,
+			 const std::optional<std::vector<double>>& delays, const std::optional<std::string>& delayModel,
 			 VectorPattern delayPattern);
 
-	void execute(const Node* node, const Job* job,
-				 const std::vector<Node*>& nodes, int rank, simgrid::s4u::BarrierPtr barrier) const override;
+	void execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
+				 simgrid::s4u::BarrierPtr barrier) const override;
 
 };
 

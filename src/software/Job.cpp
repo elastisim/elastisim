@@ -23,7 +23,7 @@ Job::Job(int walltime, int numNodes, int numGpusPerNode, double submitTime,
 		id(-1), type(RIGID), state(PENDING_SUBMISSION), walltime(walltime), numNodes(numNodes),
 		numGpusPerNode(numGpusPerNode), numNodesMin(-1), numNodesMax(-1), numGpusPerNodeMin(-1), numGpusPerNodeMax(-1),
 		submitTime(submitTime), startTime(-1), endTime(-1), waitTime(-1), makespan(-1), turnaroundTime(-1),
-		arguments(std::move(arguments)), attributes(std::move(attributes)), workload(std::move(workload)),
+		workload(std::move(workload)), arguments(std::move(arguments)), attributes(std::move(attributes)),
 		assignedNumGpusPerNode(0), executingNumGpusPerNode(0) {
 	checkSpecification();
 }
@@ -35,8 +35,8 @@ Job::Job(int walltime, JobType type, int numNodesMin, int numNodesMax, int numGp
 		numNodes(-1), numGpusPerNode(-1), numNodesMin(numNodesMin), numNodesMax(numNodesMax),
 		numGpusPerNodeMin(numGpusPerNodeMin),
 		numGpusPerNodeMax(numGpusPerNodeMax), submitTime(submitTime), startTime(-1), endTime(-1), waitTime(-1),
-		makespan(-1), turnaroundTime(-1), arguments(std::move(arguments)), attributes(std::move(attributes)),
-		workload(std::move(workload)), assignedNumGpusPerNode(0), executingNumGpusPerNode(0) {
+		makespan(-1), turnaroundTime(-1), workload(std::move(workload)), arguments(std::move(arguments)),
+		attributes(std::move(attributes)), assignedNumGpusPerNode(0), executingNumGpusPerNode(0) {
 	checkSpecification();
 }
 
@@ -67,27 +67,27 @@ void Job::setState(JobState newState) {
 			} else {
 				size_t numNodes = executingNodes.size();
 				executingNumGpusPerNode = assignedNumGpusPerNode;
-				workload->scaleTo(numNodes, executingNumGpusPerNode);
-				workload->scaleInitPhaseTo(numNodes, executingNumGpusPerNode);
+				workload->scaleTo(numNodes, executingNumGpusPerNode, runtimeArguments);
+				workload->scaleInitPhaseTo(numNodes, executingNumGpusPerNode, runtimeArguments);
 			}
 		}
 	} else if (state == PENDING_RECONFIGURATION) {
 		if (newState == IN_RECONFIGURATION) {
 			executingNodes = assignedNodes;
-			for (auto& node: assignedNodes) {
+			for (const auto& node: assignedNodes) {
 				node->removeExpectedJob(this);
 			}
 			executingNumGpusPerNode = assignedNumGpusPerNode;
 			size_t numNodes = executingNodes.size();
-			workload->scaleTo(numNodes, executingNumGpusPerNode);
-			workload->scaleReconfigurationPhaseTo(numNodes, executingNumGpusPerNode);
+			workload->scaleTo(numNodes, executingNumGpusPerNode, runtimeArguments);
+			workload->scaleReconfigurationPhaseTo(numNodes, executingNumGpusPerNode, runtimeArguments);
 		}
 	}
 	if (newState == COMPLETED || newState == KILLED) {
 		endTime = simgrid::s4u::Engine::get_clock();
 		makespan = endTime - startTime;
 		turnaroundTime = endTime - submitTime;
-		for (auto& node: assignedNodes) {
+		for (const auto& node: assignedNodes) {
 			node->removeExpectedJob(this);
 		}
 	}
@@ -137,7 +137,7 @@ const std::vector<Node*>& Job::getExpandingNodes() const {
 
 void Job::setExpandNodes(const std::vector<Node*> expandingNodes) {
 	Job::expandingNodes = expandingNodes;
-	workload->scaleExpandPhaseTo(expandingNodes.size(), executingNumGpusPerNode);
+	workload->scaleExpandPhaseTo(expandingNodes.size(), executingNumGpusPerNode, runtimeArguments);
 }
 
 void Job::assignNode(Node* node) {
@@ -186,10 +186,18 @@ void Job::updateState() {
 }
 
 void Job::clearAssignedNodes() {
-	for (auto& node: assignedNodes) {
+	for (const auto& node: assignedNodes) {
 		node->removeExpectedJob(this);
 	}
 	assignedNodes.clear();
+}
+
+void Job::updateRuntimeArguments(const std::string& key, const std::string& value) {
+	runtimeArguments[key] = value;
+}
+
+void Job::clearRuntimeArguments() {
+	runtimeArguments.clear();
 }
 
 void Job::checkSpecification() const {
@@ -231,14 +239,10 @@ void Job::checkConfigurationValidity() const {
 			xbt_die("Invalid configuration for job %d: Number of assigned nodes is expected to be %d but is %zu",
 					id, numNodes, numAssignedNodes);
 		}
-		if (assignedNumGpusPerNode != numGpusPerNode) {
-			xbt_die("Invalid configuration for job %d: Number of assigned GPUs per node is expected to be %d but is %d",
-					id, numGpusPerNode, assignedNumGpusPerNode);
-		}
 	}
 }
 
-nlohmann::json Job::toJson() {
+nlohmann::json Job::toJson() const {
 	nlohmann::json json;
 	json["id"] = id;
 	json["state"] = state;
@@ -260,15 +264,18 @@ nlohmann::json Job::toJson() {
 	json["makespan"] = makespan;
 	json["turnaround_time"] = turnaroundTime;
 	json["assigned_nodes"] = nlohmann::json::array();
-	for (auto& node: assignedNodes) {
+	for (const auto& node: assignedNodes) {
 		json["assigned_nodes"].push_back(node->getId());
 	}
 	json["assigned_num_gpus_per_node"] = assignedNumGpusPerNode;
-	for (auto& argument: arguments) {
-		json["arguments"][argument.first] = argument.second;
+	for (const auto& [key, value]: arguments) {
+		json["arguments"][key] = value;
 	}
-	for (auto& attribute: attributes) {
-		json["attributes"][attribute.first] = attribute.second;
+	for (const auto& [key, value]: attributes) {
+		json["attributes"][key] = value;
+	}
+	for (const auto& [key, value]: runtimeArguments) {
+		json["runtime_arguments"][key] = value;
 	}
 	json["total_phase_count"] = workload->getTotalPhaseCount();
 	json["completed_phases"] = workload->getCompletedPhases();

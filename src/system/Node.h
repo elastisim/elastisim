@@ -56,7 +56,7 @@ private:
 	std::map<Job*, bool> expanding;
 	double flopsPerByte;
 	std::vector<std::unique_ptr<Gpu>> gpus;
-	std::vector<Gpu*> gpuPointers;
+	std::vector<const Gpu*> gpuPointers;
 	long gpuToGpuBandwidth;
 	simgrid::s4u::MutexPtr gpuLinkMutex;
 	std::set<Job*> expectedJobs;
@@ -88,47 +88,49 @@ public:
 		 double flopsPerByte, std::vector<std::unique_ptr<Gpu>> gpus, long gpuToGpuBandwidth,
 		 std::ofstream& nodeUtilizationOutput, std::ofstream& taskTimes);
 
-	int getId() const;
+	[[nodiscard]] int getId() const;
 
-	NodeType getType() const;
+	[[nodiscard]] NodeType getType() const;
 
-	s4u_Host* getHost() const;
+	[[nodiscard]] s4u_Host* getHost() const;
 
-	std::string getHostName() const;
+	[[nodiscard]] std::string getHostName() const;
 
-	s4u_Disk* getNodeLocalBurstBuffer() const;
+	[[nodiscard]] s4u_Disk* getNodeLocalBurstBuffer() const;
 
-	const std::vector<s4u_Host*>& getPfsHosts() const;
+	[[nodiscard]] const std::vector<s4u_Host*>& getPfsHosts() const;
 
-	double getFlopsPerByte() const;
+	[[nodiscard]] double getFlopsPerByte() const;
 
-	const std::vector<Gpu*>& getGpus() const;
+	[[nodiscard]] const std::vector<const Gpu*>& getGpus() const;
 
-	long getGpuToGpuBandwidth() const;
+	[[nodiscard]] long getGpuToGpuBandwidth() const;
+
+	[[nodiscard]] std::vector<s4u_Mailbox*> execGpuComputationAsync(int numGpus, double flopsPerGpu) const;
 
 	void occupyGpuLink() const;
 
 	void releaseGpuLink() const;
 
-	s4u_Mailbox* execGpuTransferAsync(const std::vector<double>& bytes, int numGpus) const;
+	[[nodiscard]] s4u_Mailbox* execGpuTransferAsync(const std::vector<double>& bytes, int numGpus) const;
 
-	const simgrid::s4u::BarrierPtr& getBarrier(Job* job) const;
+	[[nodiscard]] const simgrid::s4u::BarrierPtr& getBarrier(Job* job) const;
 
-	const simgrid::s4u::BarrierPtr& getExpandBarrier(Job* job) const;
+	[[nodiscard]] const simgrid::s4u::BarrierPtr& getExpandBarrier(Job* job) const;
 
-	bool isInitializing(Job* job) const;
+	[[nodiscard]] bool isInitializing(Job* job) const;
 
 	void markInitialized(Job* job);
 
-	bool isReconfiguring(Job* job) const;
+	[[nodiscard]] bool isReconfiguring(Job* job) const;
 
 	void markReconfigured(Job* job);
 
-	bool isExpanding(Job* job) const;
+	[[nodiscard]] bool isExpanding(Job* job) const;
 
 	void markExpanded(Job* job);
 
-	int getExpandRank(Job* job) const;
+	[[nodiscard]] int getExpandRank(Job* job) const;
 
 	void expectJob(Job* job);
 
@@ -138,7 +140,7 @@ public:
 
 	void act();
 
-	nlohmann::json toJson();
+	[[nodiscard]] nlohmann::json toJson();
 
 };
 

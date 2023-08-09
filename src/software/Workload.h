@@ -13,6 +13,7 @@
 
 #include <memory>
 #include <queue>
+#include <map>
 
 class Task;
 
@@ -25,7 +26,7 @@ private:
 	std::unique_ptr<Phase> reconfigurationPhase;
 	std::unique_ptr<Phase> expansionPhase;
 	std::deque<std::unique_ptr<Phase>> phases;
-	std::deque<Phase*> phasePointers;
+	std::deque<const Phase*> phasePointers;
 	int totalPhaseCount;
 	int completedPhases;
 
@@ -33,25 +34,25 @@ public:
 	Workload(std::unique_ptr<Phase> initPhase, std::unique_ptr<Phase> reconfigurationPhase,
 			 std::unique_ptr<Phase> expansionPhase, std::deque<std::unique_ptr<Phase>> phases);
 
-	const Phase* getInitPhase() const;
+	[[nodiscard]] const Phase* getInitPhase() const;
 
-	const Phase* getReconfigurationPhase() const;
+	[[nodiscard]] const Phase* getReconfigurationPhase() const;
 
-	const Phase* getExpansionPhase() const;
+	[[nodiscard]] const Phase* getExpansionPhase() const;
 
-	const std::deque<Phase*>& getPhases() const;
+	[[nodiscard]] const std::deque<const Phase*>& getPhases() const;
 
-	int getTotalPhaseCount() const;
+	[[nodiscard]] int getTotalPhaseCount() const;
 
-	int getCompletedPhases() const;
+	[[nodiscard]] int getCompletedPhases() const;
 
-	void scaleInitPhaseTo(int numNodes, int numGpusPerNode);
+	void scaleInitPhaseTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments);
 
-	void scaleReconfigurationPhaseTo(int numNodes, int numGpusPerNode);
+	void scaleReconfigurationPhaseTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments);
 
-	void scaleExpandPhaseTo(int numNodes, int numGpusPerNode);
+	void scaleExpandPhaseTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments);
 
-	void scaleTo(int numNodes, int numGpusPerNode);
+	void scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments);
 
 	void advance(int completedPhases, int remainingIterations);
 

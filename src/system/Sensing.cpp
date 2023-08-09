@@ -35,7 +35,7 @@ void Sensing::operator()() const {
 	std::vector<simgrid::s4u::Link*> links;
 
 	std::string nodeNames;
-	for (auto& node: PlatformManager::getComputeNodes()) {
+	for (const auto& node: PlatformManager::getComputeNodes()) {
 		nodeNames += node->getHostName() + ",";
 		nodes.push_back(node);
 	}
@@ -43,7 +43,7 @@ void Sensing::operator()() const {
 
 	std::vector<std::string> pfsReadLinks = Configuration::get("pfs_read_links");
 	std::vector<std::string> pfsWriteLinks = Configuration::get("pfs_write_links");
-	for (auto& link: engine->get_all_links()) {
+	for (const auto& link: engine->get_all_links()) {
 		std::string linkName = link->get_name();
 		if (linkName.find("loopback") == std::string::npos &&
 			linkName.find("_limiter") == std::string::npos &&
@@ -75,12 +75,12 @@ void Sensing::operator()() const {
 
 		cpuUtilization << time << ",";
 		gpuUtilization << time << ",";
-		for (auto& node: nodes) {
+		for (const auto& node: nodes) {
 			s4u_Host* host = node->getHost();
 			nodeCpuUtilizations += std::to_string(host->get_load() / host->get_speed()) + ",";
-			std::vector<Gpu*> gpus = node->getGpus();
+			std::vector<const Gpu*> gpus = node->getGpus();
 			double totalGpuUtilization = 0;
-			for (auto& gpu: gpus) {
+			for (const auto& gpu: gpus) {
 				totalGpuUtilization += gpu->getUtilization();
 			}
 			nodeGpuUtilizations += gpus.empty() ? "0," : std::to_string(totalGpuUtilization / gpus.size()) + ",";
@@ -93,7 +93,7 @@ void Sensing::operator()() const {
 		nodeGpuUtilizations.clear();
 
 		networkUsage = 0;
-		for (auto& link: links) {
+		for (const auto& link: links) {
 			networkUsage += link->get_usage() / link->get_bandwidth();
 		}
 		networkActivity << time << ",";

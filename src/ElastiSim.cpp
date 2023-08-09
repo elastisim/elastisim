@@ -46,7 +46,7 @@ void ElastiSim::startSimulation(int argc, char* argv[]) {
 
 	std::ofstream taskTimes;
 	if (Configuration::getBoolIfExists("log_task_times")) {
-		taskTimes = std::ofstream(Configuration::get("task_times_file"));
+		taskTimes = std::ofstream(Configuration::get("task_times"));
 		taskTimes << "Time,Job,Node,Task,Duration" << std::endl;
 	} else {
 		taskTimes.close();
@@ -57,7 +57,7 @@ void ElastiSim::startSimulation(int argc, char* argv[]) {
 	std::vector<s4u_Host*> filteredPfs;
 
 	s4u_Host* masterHost = nullptr;
-	for (auto& host: hosts) {
+	for (const auto& host: hosts) {
 		if (getPropertyIfExists(host->get_property("batch_system")) == "true") {
 			if (!masterHost) {
 				masterHost = host;
@@ -73,7 +73,7 @@ void ElastiSim::startSimulation(int argc, char* argv[]) {
 
 	std::vector<std::unique_ptr<Node>> nodes;
 	int id = 0;
-	for (auto& host: filteredHosts) {
+	for (const auto& host: filteredHosts) {
 
 		const std::string& hostname = host->get_name();
 

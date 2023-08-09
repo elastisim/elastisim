@@ -26,7 +26,7 @@
 
 XBT_LOG_NEW_DEFAULT_CATEGORY(SimulationEngine, "Messages within the Simulator actor");
 
-SimulationEngine::SimulationEngine() {}
+SimulationEngine::SimulationEngine() = default;
 
 void SimulationEngine::operator()() {
 
@@ -37,14 +37,14 @@ void SimulationEngine::operator()() {
 
 	std::ofstream jobStatistics(Configuration::get("job_statistics"));
 
-	auto payload = mailboxSimulator->get_unique<SimMsg>();
+	const auto& numJobsMsg = mailboxSimulator->get_unique<SimMsg>();
 	std::vector<std::unique_ptr<Job>> jobs;
-	std::list<int> expectedJobs(payload->getNumberOfJobs());
+	std::list<int> expectedJobs(numJobsMsg->getNumberOfJobs());
 	std::iota(std::begin(expectedJobs), std::end(expectedJobs), 0);
 
 	// main loop
 	while (!expectedJobs.empty()) {
-		payload = mailboxSimulator->get_unique<SimMsg>();
+		const auto& payload = mailboxSimulator->get_unique<SimMsg>();
 		if (payload->getType() == SUBMIT_JOB) {
 			XBT_INFO("Registered job submission");
 			jobs.push_back(payload->getJob());
@@ -61,7 +61,7 @@ void SimulationEngine::operator()() {
 	// finalization
 	XBT_INFO("Send finalization");
 	mailboxScheduler->put(new SchedMsg(SCHEDULER_FINALIZE), 0);
-	for (auto& node: PlatformManager::getComputeNodes()) {
+	for (const auto& node: PlatformManager::getComputeNodes()) {
 		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
 		mailboxNode->put(new NodeMsg(NODE_FINALIZE), 0);
 	}

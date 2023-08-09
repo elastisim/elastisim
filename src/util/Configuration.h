@@ -24,11 +24,11 @@ public:
 
 	static void init(const std::string& configurationFilePath);
 
-	static nlohmann::basic_json<> get(const std::string& key);
+	[[nodiscard]] static nlohmann::basic_json<> get(const std::string& key);
 
-	static bool exists(const std::string& key);
+	[[nodiscard]] static bool exists(const std::string& key);
 
-	static bool getBoolIfExists(const std::string& key);
+	[[nodiscard]] static bool getBoolIfExists(const std::string& key);
 
 };
 

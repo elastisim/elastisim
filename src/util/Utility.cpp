@@ -134,15 +134,15 @@ MatrixPattern Utility::asMatrixPattern(const std::string& pattern) {
 
 std::string Utility::applyArguments(const std::string& model, const std::map<std::string, std::string>& arguments) {
 	std::string substitutedModel = model;
-	for (auto& argument: arguments) {
-		substitutedModel = std::regex_replace(substitutedModel, std::regex(argument.first), argument.second);
+	for (const auto& [key, value]: arguments) {
+		substitutedModel = std::regex_replace(substitutedModel, std::regex(key), value);
 	}
 	return substitutedModel;
 }
 
 std::map<std::string, std::string> Utility::readStringMap(nlohmann::json jsonMap) {
 	std::map<std::string, std::string> map;
-	for (auto& mapping: jsonMap.items()) {
+	for (const auto& mapping: jsonMap.items()) {
 		if (mapping.value().is_string()) {
 			map[mapping.key()] = mapping.value();
 		} else if (mapping.value().is_number_float()) {
@@ -162,7 +162,7 @@ std::unique_ptr<Task>
 Utility::readTask(nlohmann::json jsonTask, const std::map<std::string, std::string>& arguments, int numNodes,
 				  int numGpusPerNode) {
 
-	std::string name = "";
+	std::string name;
 	if (jsonTask["name"].is_string()) {
 		name = jsonTask["name"];
 	}
@@ -296,36 +296,39 @@ Utility::createDelayTask(nlohmann::json jsonTask, const std::string& name, const
 						 bool synchronized, const std::map<std::string, std::string>& arguments, int numNodes,
 						 int numGpusPerNode) {
 
+	std::optional<std::vector<double>> delays;
+	std::optional<std::string> delayModel;
+
 	VectorPattern pattern = asVectorPattern(jsonTask["pattern"]);
 	if (numNodes == 0) {
 		if (pattern == VECTOR) {
 			xbt_die("Invalid pattern type %s for malleable job", asString(pattern).c_str());
 		} else {
 			if (jsonTask["delay"].is_number()) {
-				std::string delays = std::to_string((double) jsonTask["delay"]);
-				return std::make_unique<T>(name, iterations, synchronized, delays, pattern);
+				delayModel = std::to_string((double) jsonTask["delay"]);
+				return std::make_unique<T>(name, iterations, synchronized, delays, delayModel, pattern);
 			} else if (jsonTask["delay"].is_string()) {
-				std::string delays = applyArguments(jsonTask["delay"], arguments);
-				return std::make_unique<T>(name, iterations, synchronized, delays, pattern);
+				delayModel = std::make_optional(applyArguments(jsonTask["delay"], arguments));
+				return std::make_unique<T>(name, iterations, synchronized, delays, delayModel, pattern);
 			} else {
 				xbt_die("%s pattern requires a number or string type", asString(pattern).c_str());
 			}
 		}
 	} else {
 		if (pattern == VECTOR) {
-			if (jsonTask["delay"].is_primitive()) {
+			if (!jsonTask["delay"].is_array()) {
 				xbt_die("VECTOR pattern requires an array type");
 			}
-			std::vector<double> delays = jsonTask["delay"];
-			return std::make_unique<T>(name, iterations, synchronized, delays, pattern);
+			delays = jsonTask["delay"];
+			return std::make_unique<T>(name, iterations, synchronized, delays, delayModel, pattern);
 		} else {
 			if (jsonTask["delay"].is_number()) {
-				std::vector<double> delays = createVector((double) jsonTask["delay"], pattern, numNodes);
-				return std::make_unique<T>(name, iterations, synchronized, delays, pattern);
+				delays = createVector((double) jsonTask["delay"], pattern, numNodes);
+				return std::make_unique<T>(name, iterations, synchronized, delays, delayModel, pattern);
 			} else if (jsonTask["delay"].is_string()) {
-				std::vector<double> delays = createVector(applyArguments(jsonTask["delay"], arguments), pattern,
-														  numNodes, numGpusPerNode);
-				return std::make_unique<T>(name, iterations, synchronized, delays, pattern);
+				delays = createVector(applyArguments(jsonTask["delay"], arguments), pattern,
+									  numNodes, numGpusPerNode);
+				return std::make_unique<T>(name, iterations, synchronized, delays, delayModel, pattern);
 			} else {
 				xbt_die("%s pattern requires a number or string type", asString(pattern).c_str());
 			}
@@ -344,36 +347,38 @@ Utility::createIoTask(nlohmann::json jsonTask, const std::string& name, const st
 		async = jsonTask["async"];
 	}
 
+	std::optional<std::vector<double>> ioSizes;
+	std::optional<std::string> ioModel;
+
 	VectorPattern pattern = asVectorPattern(jsonTask["pattern"]);
 	if (numNodes == 0) {
 		if (pattern == VECTOR) {
 			xbt_die("Invalid pattern type %s for malleable job", asString(pattern).c_str());
 		} else {
 			if (jsonTask["bytes"].is_number()) {
-				std::string ioSizes = std::to_string((double) jsonTask["bytes"]);
-				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, pattern);
+				ioModel = std::to_string((double) jsonTask["bytes"]);
+				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, pattern);
 			} else if (jsonTask["bytes"].is_string()) {
-				std::string ioSizes = applyArguments(jsonTask["bytes"], arguments);
-				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, pattern);
+				ioModel = applyArguments(jsonTask["bytes"], arguments);
+				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, pattern);
 			} else {
 				xbt_die("%s pattern requires a number or string type", asString(pattern).c_str());
 			}
 		}
 	} else {
 		if (pattern == VECTOR) {
-			if (jsonTask["bytes"].is_primitive()) {
+			if (!jsonTask["bytes"].is_array()) {
 				xbt_die("VECTOR pattern requires an array type");
 			}
-			std::vector<double> ioSizes = jsonTask["bytes"];
-			return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, pattern);
+			ioSizes = jsonTask["bytes"];
+			return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, pattern);
 		} else {
 			if (jsonTask["bytes"].is_number()) {
-				std::vector<double> ioSizes = createVector((double) jsonTask["bytes"], pattern, numNodes);
-				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, pattern);
+				ioSizes = createVector((double) jsonTask["bytes"], pattern, numNodes);
+				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, pattern);
 			} else if (jsonTask["bytes"].is_string()) {
-				std::vector<double> ioSizes = createVector(applyArguments(jsonTask["bytes"], arguments), pattern,
-														   numNodes, numGpusPerNode);
-				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, pattern);
+				ioSizes = createVector(applyArguments(jsonTask["bytes"], arguments), pattern, numNodes, numGpusPerNode);
+				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, pattern);
 			} else {
 				xbt_die("%s pattern requires a number or string type", asString(pattern).c_str());
 			}
@@ -390,8 +395,8 @@ Utility::createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name,
 		xbt_die("FLOPS and payloads can not be simultaneously unspecified for the same task");
 	}
 
-	std::vector<double> flops;
-	std::string gpuModel;
+	std::optional<std::vector<double>> flops;
+	std::optional<std::string> gpuModel;
 
 	VectorPattern gpuPattern;
 	if (!jsonTask["flops"].is_null()) {
@@ -410,7 +415,7 @@ Utility::createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name,
 			}
 		} else {
 			if (gpuPattern == VECTOR) {
-				if (jsonTask["flops"].is_primitive()) {
+				if (!jsonTask["flops"].is_array()) {
 					xbt_die("VECTOR computation_pattern requires an array type");
 				}
 				std::vector<double> local = jsonTask["flops"];
@@ -428,9 +433,9 @@ Utility::createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name,
 		}
 	}
 
-	std::vector<double> intraNodeCommunication;
-	std::vector<double> interNodeCommunication;
-	std::string comModel;
+	std::optional<std::vector<double>> intraNodeCommunication;
+	std::optional<std::vector<double>> interNodeCommunication;
+	std::optional<std::string> comModel;
 
 	MatrixPattern comPattern;
 	if (!jsonTask["bytes"].is_null()) {
@@ -462,19 +467,8 @@ Utility::createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name,
 
 	}
 
-	if (gpuModel.empty() && comModel.empty()) {
-		return std::make_unique<CombinedGpuTask>(name, iterations, synchronized, flops, intraNodeCommunication,
-												 interNodeCommunication);
-	} else if (gpuModel.empty() && !comModel.empty()) {
-		return std::make_unique<CombinedGpuTask>(name, iterations, synchronized, flops, comModel, comPattern);
-	} else if (!gpuModel.empty() && comModel.empty()) {
-		return std::make_unique<CombinedGpuTask>(name, iterations, synchronized, gpuModel, gpuPattern,
-												 intraNodeCommunication,
-												 interNodeCommunication);
-	} else {
-		return std::make_unique<CombinedGpuTask>(name, iterations, synchronized, gpuModel, gpuPattern, comModel,
-												 comPattern);
-	}
+	return std::make_unique<CombinedGpuTask>(name, iterations, synchronized, flops, gpuModel, gpuPattern, comModel,
+											 comPattern, intraNodeCommunication, interNodeCommunication);
 
 }
 
@@ -487,8 +481,8 @@ Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name,
 		xbt_die("FLOPS and payloads can not be simultaneously unspecified for the same task");
 	}
 
-	std::vector<double> flops;
-	std::string cpuModel;
+	std::optional<std::vector<double>> flops;
+	std::optional<std::string> cpuModel;
 
 	VectorPattern cpuPattern;
 	if (!jsonTask["flops"].is_null()) {
@@ -507,7 +501,7 @@ Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name,
 			}
 		} else {
 			if (cpuPattern == VECTOR) {
-				if (jsonTask["flops"].is_primitive()) {
+				if (!jsonTask["flops"].is_array()) {
 					xbt_die("VECTOR computation_pattern requires an array type");
 				}
 				std::vector<double> local = jsonTask["flops"];
@@ -525,8 +519,8 @@ Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name,
 		}
 	}
 
-	std::vector<double> bytes;
-	std::string comModel;
+	std::optional<std::vector<double>> bytes;
+	std::optional<std::string> comModel;
 
 	MatrixPattern comPattern;
 	if (!jsonTask["bytes"].is_null()) {
@@ -541,7 +535,7 @@ Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name,
 			}
 		} else {
 			if (comPattern == MATRIX) {
-				if (jsonTask["bytes"].is_primitive()) {
+				if (!jsonTask["bytes"].is_array()) {
 					xbt_die("MATRIX communication_pattern requires an array type");
 				}
 				std::vector<double> local = jsonTask["bytes"];
@@ -565,18 +559,8 @@ Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name,
 		coupled = jsonTask["coupled"];
 	}
 
-	if (cpuModel.empty() && comModel.empty()) {
-		return std::make_unique<CombinedCpuTask>(name, iterations, synchronized, flops, bytes, coupled);
-	} else if (cpuModel.empty() && !comModel.empty()) {
-		return std::make_unique<CombinedCpuTask>(name, iterations, synchronized, flops, comModel, comPattern,
-												 coupled);
-	} else if (!cpuModel.empty() && comModel.empty()) {
-		return std::make_unique<CombinedCpuTask>(name, iterations, synchronized, cpuModel, cpuPattern, bytes,
-												 coupled);
-	} else {
-		return std::make_unique<CombinedCpuTask>(name, iterations, synchronized, cpuModel, cpuPattern, comModel,
-												 comPattern, coupled);
-	}
+	return std::make_unique<CombinedCpuTask>(name, iterations, synchronized, flops, cpuModel, cpuPattern, comModel,
+											 comPattern, bytes, coupled);
 
 }
 
@@ -606,6 +590,28 @@ double Utility::evaluateFormula(const std::string& model, int numNodes, int numG
 	}
 }
 
+double Utility::evaluateFormula(const std::string& model, int numNodes, int numGpusPerNode,
+								const std::map<std::string, std::string>& runtimeArguments) {
+
+	exprtk::parser<double> parser;
+	exprtk::expression<double> expression;
+	std::string substitutedModel = std::regex_replace(model, std::regex("num_nodes"), std::to_string(numNodes));
+	substitutedModel = std::regex_replace(substitutedModel, std::regex("num_gpus_per_node"),
+										  std::to_string(numGpusPerNode));
+	substitutedModel = std::regex_replace(substitutedModel, std::regex("num_gpus"),
+										  std::to_string(numNodes * numGpusPerNode));
+
+	for (const auto& [key, value]: runtimeArguments) {
+		substitutedModel = std::regex_replace(substitutedModel, std::regex(key), value);
+	}
+
+	if (parser.compile(substitutedModel, expression)) {
+		return expression.value();
+	} else {
+		xbt_die("Performance model %s not valid", model.c_str());
+	}
+}
+
 std::vector<double> Utility::createVector(double size, VectorPattern pattern, int numNodes) {
 	std::vector<double> sizes(numNodes);
 	if (pattern == UNIFORM) {
@@ -613,13 +619,13 @@ std::vector<double> Utility::createVector(double size, VectorPattern pattern, in
 	} else if (pattern == EVEN_RANKS) {
 		int participatingNodes = numNodes % 2 == 0 ? numNodes / 2 : numNodes / 2 + 1;
 		double sizePerNode = size / participatingNodes;
-		for (int i = 0; i < numNodes; i+=2) {
+		for (int i = 0; i < numNodes; i += 2) {
 			sizes[i] = sizePerNode;
 		}
 	} else if (pattern == ODD_RANKS) {
 		int participatingNodes = numNodes / 2;
 		double sizePerNode = size / participatingNodes;
-		for (int i = 1; i < numNodes; i+=2) {
+		for (int i = 1; i < numNodes; i += 2) {
 			sizes[i] = sizePerNode;
 		}
 	} else if (pattern == ROOT_ONLY) {
@@ -634,6 +640,13 @@ std::vector<double> Utility::createVector(double size, VectorPattern pattern, in
 std::vector<double>
 Utility::createVector(const std::string& model, VectorPattern pattern, int numNodes, int numGpusPerNode) {
 	double size = evaluateFormula(model, numNodes, numGpusPerNode);
+	return createVector(size, pattern, numNodes);
+}
+
+std::vector<double>
+Utility::createVector(const std::string& model, VectorPattern pattern, int numNodes, int numGpusPerNode,
+					  const std::map<std::string, std::string>& runtimeArguments) {
+	double size = evaluateFormula(model, numNodes, numGpusPerNode, runtimeArguments);
 	return createVector(size, pattern, numNodes);
 }
 
@@ -696,6 +709,13 @@ Utility::createMatrix(const std::string& model, MatrixPattern pattern, int numNo
 	return createMatrix(size, pattern, numNodes);
 }
 
+std::vector<double>
+Utility::createMatrix(const std::string& model, MatrixPattern pattern, int numNodes, int numGpusPerNode,
+					  const std::map<std::string, std::string>& runtimeArguments) {
+	double size = evaluateFormula(model, numNodes, numGpusPerNode, runtimeArguments);
+	return createMatrix(size, pattern, numNodes);
+}
+
 std::pair<std::vector<double>, std::vector<double>>
 Utility::createMatrices(double size, MatrixPattern pattern, int numNodes, int numGpusPerNode) {
 
@@ -706,26 +726,29 @@ Utility::createMatrices(double size, MatrixPattern pattern, int numNodes, int nu
 		intraNodeComSize = 0;
 		interNodeComSize = size;
 	} else if (pattern == ALL_TO_ALL) {
-		double payloadPerCommunication = size / (numGpus * numGpus - numGpus);
-		double gpusToCommunicatePerNode = numGpusPerNode - 1;
-		intraNodeComSize = payloadPerCommunication * gpusToCommunicatePerNode * gpusToCommunicatePerNode;
-		interNodeComSize = payloadPerCommunication * (numNodes * numGpusPerNode - numGpusPerNode);
+		double payloadPerCommunication = size / (numGpus * (numGpus - 1));
+		int numIntraNodeGpus = numGpusPerNode - 1;
+		int numInterNodeGpus = numGpus - numGpusPerNode;
+		intraNodeComSize = (numGpus * numIntraNodeGpus * payloadPerCommunication) / numNodes;
+		interNodeComSize = numGpus * numInterNodeGpus * payloadPerCommunication;
 	} else if (pattern == RING) {
 		double payloadPerCommunication = size / (numGpus * 2);
 		if (numNodes == 1) {
 			intraNodeComSize = payloadPerCommunication * numGpusPerNode * 2;
+			interNodeComSize = 0;
 		} else {
 			intraNodeComSize = payloadPerCommunication * (numGpusPerNode - 1) * 2;
+			interNodeComSize = payloadPerCommunication * numNodes * 2;
 		}
-		interNodeComSize = payloadPerCommunication * numNodes * 2;
 	} else if (pattern == RING_CLOCKWISE || pattern == RING_COUNTER_CLOCKWISE) {
 		double payloadPerCommunication = size / numGpus;
 		if (numNodes == 1) {
 			intraNodeComSize = payloadPerCommunication * numGpusPerNode;
+			interNodeComSize = 0;
 		} else {
 			intraNodeComSize = payloadPerCommunication * (numGpusPerNode - 1);
+			interNodeComSize = payloadPerCommunication * numNodes;
 		}
-		interNodeComSize = payloadPerCommunication * numNodes * 2;
 	} else {
 		xbt_die("Unsupported GPU communication pattern %s", asString(pattern).c_str());
 	}
@@ -739,6 +762,13 @@ Utility::createMatrices(double size, MatrixPattern pattern, int numNodes, int nu
 std::pair<std::vector<double>, std::vector<double>>
 Utility::createMatrices(const std::string& model, MatrixPattern pattern, int numNodes, int numGpusPerNode) {
 	double size = evaluateFormula(model, numNodes, numGpusPerNode);
+	return createMatrices(size, pattern, numNodes, numGpusPerNode);
+}
+
+std::pair<std::vector<double>, std::vector<double>>
+Utility::createMatrices(const std::string& model, MatrixPattern pattern, int numNodes, int numGpusPerNode,
+						const std::map<std::string, std::string>& runtimeArguments) {
+	double size = evaluateFormula(model, numNodes, numGpusPerNode, runtimeArguments);
 	return createMatrices(size, pattern, numNodes, numGpusPerNode);
 }
 
@@ -802,4 +832,36 @@ std::vector<std::unique_ptr<Job>> Utility::readJobs(const std::string& jobsFile)
 		}
 	}
 	return jobs;
+}
+
+double Utility::logTaskStart(const Task* task, int iterations) {
+	if (task->getName().empty()) {
+		XBT_INFO("Starting task with %d iteration(s)...", iterations);
+	} else {
+		XBT_INFO("Starting task %s with %d iteration(s)...", task->getName().c_str(), iterations);
+	}
+	return simgrid::s4u::Engine::get_clock();
+}
+
+double Utility::logTaskEnd(const Task* task, double start) {
+	double current = simgrid::s4u::Engine::get_clock();
+	if (task->getName().empty()) {
+		XBT_INFO("Task finished after %f seconds", current - start);
+	} else {
+		XBT_INFO("Task %s finished after %f seconds", task->getName().c_str(), current - start);
+	}
+	return current - start;
+}
+
+double Utility::logIterationStart(int iterations, int i) {
+	if (iterations > 1) {
+		XBT_INFO("Executing iteration %d of %d...", i, iterations);
+	}
+	return simgrid::s4u::Engine::get_clock();
+}
+
+void Utility::logIterationEnd(int iterations, int i, double start) {
+	if (iterations > 1) {
+		XBT_INFO("Finished iteration %d after %f seconds", i, simgrid::s4u::Engine::get_clock() - start);
+	}
 }

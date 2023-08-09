@@ -51,23 +51,23 @@ public:
 
 	virtual ~Task();
 
-	const std::string& getName() const;
+	[[nodiscard]] const std::string& getName() const;
 
-	int getIterations() const;
+	[[nodiscard]] int getIterations() const;
 
 	void updateIterations(int numNodes, int numGpusPerNode);
 
-	bool isSynchronized() const;
+	[[nodiscard]] bool isSynchronized() const;
 
-	virtual bool isAsynchronous() const;
+	[[nodiscard]] virtual bool isAsynchronous() const;
 
 	virtual void execute(const Node* node, const Job* job,
 						 const std::vector<Node*>& nodes, int rank, simgrid::s4u::BarrierPtr barrier) const = 0;
 
-	virtual std::vector<simgrid::s4u::ActivityPtr>
+	[[nodiscard]] virtual std::vector<simgrid::s4u::ActivityPtr>
 	executeAsync(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank) const;
 
-	virtual void scaleTo(int numNodes, int numGpusPerNode);
+	virtual void scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments);
 };
 
 

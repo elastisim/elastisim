@@ -22,17 +22,14 @@ protected:
 	VectorPattern delayPattern;
 
 public:
-	DelayTask(const std::string& name, const std::string& iterations, bool synchronized, std::vector<double> delays,
+	DelayTask(const std::string& name, const std::string& iterations, bool synchronized,
+			  std::optional<std::vector<double>> delays, std::optional<std::string> delayModel,
 			  VectorPattern delayPattern);
 
-	DelayTask(const std::string& name, const std::string& iterations, bool synchronized, std::string delayModel,
-			  VectorPattern delayPattern);
-
-	void execute(const Node* node, const Job* job,
-				 const std::vector<Node*>& nodes, int rank,
+	void execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
 				 simgrid::s4u::BarrierPtr barrier) const override = 0;
 
-	void scaleTo(int numNodes, int numGpusPerNode) override;
+	void scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) override;
 
 };
 

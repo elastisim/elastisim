@@ -24,24 +24,15 @@ protected:
 	MatrixPattern communicationPattern;
 
 public:
-
-	CombinedTask(const std::string& name, const std::string& iterations, bool synchronized, std::vector<double> flops);
-
-	CombinedTask(const std::string& name, const std::string& iterations, bool synchronized, std::vector<double> flops,
-				 std::string communicationModel, MatrixPattern communicationPattern);
-
 	CombinedTask(const std::string& name, const std::string& iterations, bool synchronized,
-				 std::string computationModel, VectorPattern computationPattern);
-
-	CombinedTask(const std::string& name, const std::string& iterations, bool synchronized,
-				 std::string computationModel, VectorPattern computationPattern, std::string communicationModel,
+				 std::optional<std::vector<double>> flops, std::optional<std::string> computationModel,
+				 VectorPattern computationPattern, std::optional<std::string> communicationModel,
 				 MatrixPattern communicationPattern);
 
-	void execute(const Node* node, const Job* job,
-				 const std::vector<Node*>& nodes, int rank,
+	void execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
 				 simgrid::s4u::BarrierPtr barrier) const override = 0;
 
-	void scaleTo(int numNodes, int numGpusPerNode) override;
+	void scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) override;
 
 };
 

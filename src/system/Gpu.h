@@ -37,15 +37,15 @@ private:
 public:
 	Gpu(int id, long processingSpeed, s4u_Host* host);
 
-	long getProcessingSpeed() const;
+	[[nodiscard]] long getProcessingSpeed() const;
 
-	GpuState getState() const;
+	[[nodiscard]] GpuState getState() const;
 
-	double getUtilization() const;
+	[[nodiscard]] double getUtilization() const;
 
 	void exec(double flops);
 
-	s4u_Mailbox* execAsync(double flops);
+	[[nodiscard]] s4u_Mailbox* execAsync(double flops);
 
 	nlohmann::json toJson();
 };

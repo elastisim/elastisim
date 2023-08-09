@@ -18,15 +18,11 @@ XBT_LOG_NEW_DEFAULT_CATEGORY(BurstBufferReadTask,
 							 "Messages within the burst buffer read task");
 
 BurstBufferReadTask::BurstBufferReadTask(const std::string& name, const std::string& iterations, bool synchronized,
-										 bool asynchronous, const std::vector<double>& ioSizes, VectorPattern ioPattern)
-		: IoTask(name, iterations, synchronized, asynchronous, ioSizes, ioPattern) {}
+										 bool asynchronous, const std::optional<std::vector<double>>& ioSizes,
+										 const std::optional<std::string>& ioModel, VectorPattern ioPattern) :
+		IoTask(name, iterations, synchronized, asynchronous, ioSizes, ioModel, ioPattern) {}
 
-BurstBufferReadTask::BurstBufferReadTask(const std::string& name, const std::string& iterations, bool synchronized,
-										 bool asynchronous, const std::string& ioModel, VectorPattern ioPattern) :
-		IoTask(name, iterations, synchronized, asynchronous, ioModel, ioPattern) {}
-
-void BurstBufferReadTask::execute(const Node* node, const Job* job,
-								  const std::vector<Node*>& nodes, int rank,
+void BurstBufferReadTask::execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
 								  simgrid::s4u::BarrierPtr barrier) const {
 	if (node->getType() == COMPUTE_NODE_WITH_BB) {
 		XBT_INFO("Reading %f bytes from burst buffer", ioSizes[rank]);
@@ -41,7 +37,7 @@ void BurstBufferReadTask::execute(const Node* node, const Job* job,
 		std::vector<double> flops;
 		std::vector<double> payloads(numNodes * numNodes);
 		int destinationRank = 0;
-		for (auto& assignedNode: nodes) {
+		for (const auto& assignedNode: nodes) {
 			hosts.emplace_back(assignedNode->getHost());
 			flops.emplace_back(assignedNode->getFlopsPerByte() * sizePerHost);
 			if (assignedNode == node) continue;
@@ -50,10 +46,10 @@ void BurstBufferReadTask::execute(const Node* node, const Job* job,
 			payloads[index] = sizePerHost;
 		}
 		simgrid::s4u::this_actor::parallel_execute(hosts, flops, payloads);
-		for (auto& activity: activities) {
+		for (const auto& activity: activities) {
 			activity->wait();
 		}
 	} else {
-		xbt_die("Unknown compute node type");
+		xbt_die("No burst buffer available on node %s", node->getHostName().c_str());
 	}
 }

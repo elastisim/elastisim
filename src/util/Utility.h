@@ -30,83 +30,107 @@ class Job;
 class Utility {
 
 private:
-	static std::string toLower(const std::string& string);
+	[[nodiscard]] static std::string toLower(const std::string& string);
 
-	static JobType parseJobType(const std::string& jobType);
+	[[nodiscard]] static JobType parseJobType(const std::string& jobType);
 
-	static std::string asString(VectorPattern pattern);
+	[[nodiscard]] static std::string asString(VectorPattern pattern);
 
-	static VectorPattern asVectorPattern(const std::string& pattern);
+	[[nodiscard]] static VectorPattern asVectorPattern(const std::string& pattern);
 
-	static std::string asString(MatrixPattern pattern);
+	[[nodiscard]] static std::string asString(MatrixPattern pattern);
 
-	static MatrixPattern asMatrixPattern(const std::string& pattern);
+	[[nodiscard]] static MatrixPattern asMatrixPattern(const std::string& pattern);
 
-	static std::string applyArguments(const std::string& model, const std::map<std::string, std::string>& arguments);
+	[[nodiscard]] static std::string
+	applyArguments(const std::string& model, const std::map<std::string, std::string>& arguments);
 
-	static std::map<std::string, std::string> readStringMap(nlohmann::json jsonMap);
+	[[nodiscard]] static std::map<std::string, std::string> readStringMap(nlohmann::json jsonMap);
 
-	static std::unique_ptr<Task>
+	[[nodiscard]] static std::unique_ptr<Task>
 	readTask(nlohmann::json jsonTask, const std::map<std::string, std::string>& arguments, int numNodes,
 			 int numGpusPerNode);
 
-	static std::unique_ptr<Phase>
+	[[nodiscard]] static std::unique_ptr<Phase>
 	readPhase(nlohmann::json jsonPhase, const std::map<std::string, std::string>& arguments, int numNodes,
 			  int numGpusPerNode);
 
-	static std::unique_ptr<Phase>
+	[[nodiscard]] static std::unique_ptr<Phase>
 	readOneTimePhase(nlohmann::json jsonPhase, const std::map<std::string, std::string>& arguments,
 					 bool mandatoryBarrier, int numNodes, int numGpusPerNode);
 
-	static std::unique_ptr<Workload>
+	[[nodiscard]] static std::unique_ptr<Workload>
 	readWorkload(const std::string& workloadFile, const std::map<std::string, std::string>& arguments,
 				 int numNodes = 0, int numGpusPerNode = 0);
 
 	template<typename T>
-	static std::unique_ptr<T>
+	[[nodiscard]] static std::unique_ptr<T>
 	createDelayTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations, bool synchronized,
 					const std::map<std::string, std::string>& arguments, int numNodes, int numGpusPerNode);
 
 	template<typename T>
-	static std::unique_ptr<T>
+	[[nodiscard]] static std::unique_ptr<T>
 	createIoTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations, bool synchronized,
 				 const std::map<std::string, std::string>& arguments, int numNodes, int numGpusPerNode);
 
-	static std::unique_ptr<Task>
+	[[nodiscard]] static std::unique_ptr<Task>
 	createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations,
 						  bool synchronized,
 						  const std::map<std::string, std::string>& arguments, int numNodes, int numGpusPerNode);
 
-	static std::unique_ptr<Task>
+	[[nodiscard]] static std::unique_ptr<Task>
 	createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations,
 						  bool synchronized,
 						  const std::map<std::string, std::string>& arguments, int numNodes, int numGpusPerNode);
 
-	static std::unique_ptr<Task>
+	[[nodiscard]] static std::unique_ptr<Task>
 	createSequenceTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations,
 					   bool synchronized,
 					   const std::map<std::string, std::string>& arguments, int numNodes, int numGpusPerNode);
 
 public:
-	static double evaluateFormula(const std::string& model, int numNodes, int numGpusPerNode);
+	[[nodiscard]] static double evaluateFormula(const std::string& model, int numNodes, int numGpusPerNode);
 
-	static std::vector<double> createVector(double size, VectorPattern pattern, int numNodes);
+	[[nodiscard]] static double evaluateFormula(const std::string& model, int numNodes, int numGpusPerNode,
+												const std::map<std::string, std::string>& runtimeArguments);
 
-	static std::vector<double>
+	[[nodiscard]] static std::vector<double> createVector(double size, VectorPattern pattern, int numNodes);
+
+	[[nodiscard]] static std::vector<double>
 	createVector(const std::string& model, VectorPattern pattern, int numNodes, int numGpusPerNode);
 
-	static std::vector<double> createMatrix(double size, MatrixPattern pattern, int numNodes);
+	[[nodiscard]] static std::vector<double>
+	createVector(const std::string& model, VectorPattern pattern, int numNodes, int numGpusPerNode,
+				 const std::map<std::string, std::string>& runtimeArguments);
 
-	static std::vector<double>
+	[[nodiscard]] static std::vector<double> createMatrix(double size, MatrixPattern pattern, int numNodes);
+
+	[[nodiscard]] static std::vector<double>
 	createMatrix(const std::string& model, MatrixPattern pattern, int numNodes, int numGpusPerNode);
 
-	static std::pair<std::vector<double>, std::vector<double>>
+	[[nodiscard]] static std::vector<double>
+	createMatrix(const std::string& model, MatrixPattern pattern, int numNodes, int numGpusPerNode,
+				 const std::map<std::string, std::string>& runtimeArguments);
+
+	[[nodiscard]] static std::pair<std::vector<double>, std::vector<double>>
 	createMatrices(double size, MatrixPattern pattern, int numNodes, int numGpusPerNode);
 
-	static std::pair<std::vector<double>, std::vector<double>>
+	[[nodiscard]] static std::pair<std::vector<double>, std::vector<double>>
 	createMatrices(const std::string& model, MatrixPattern pattern, int numNodes, int numGpusPerNode);
 
-	static std::vector<std::unique_ptr<Job>> readJobs(const std::string& jobsFile);
+	[[nodiscard]] static std::pair<std::vector<double>, std::vector<double>>
+	createMatrices(const std::string& model, MatrixPattern pattern, int numNodes, int numGpusPerNode,
+				   const std::map<std::string, std::string>& runtimeArguments);
+
+	[[nodiscard]] static std::vector<std::unique_ptr<Job>> readJobs(const std::string& jobsFile);
+
+	static double logTaskStart(const Task* task, int iterations);
+
+	static double logTaskEnd(const Task* task, double start);
+
+	static double logIterationStart(int iterations, int i);
+
+	static void logIterationEnd(int iterations, int i, double start);
 
 };
 

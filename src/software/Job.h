@@ -63,6 +63,7 @@ private:
 	std::vector<Node*> expandingNodes;
 	std::map<std::string, std::string> arguments;
 	std::map<std::string, std::string> attributes;
+	std::map<std::string, std::string> runtimeArguments;
 	int assignedNumGpusPerNode;
 	int executingNumGpusPerNode;
 
@@ -75,35 +76,35 @@ public:
 		double submitTime, std::map<std::string, std::string> arguments, std::map<std::string, std::string> attributes,
 		std::unique_ptr<Workload> workload);
 
-	int getId() const;
+	[[nodiscard]] int getId() const;
 
 	void setId(int id);
 
-	JobState getState() const;
+	[[nodiscard]] JobState getState() const;
 
-	JobType getType() const;
+	[[nodiscard]] JobType getType() const;
 
 	void setState(JobState newState);
 
-	double getWalltime() const;
+	[[nodiscard]] double getWalltime() const;
 
-	double getSubmitTime() const;
+	[[nodiscard]] double getSubmitTime() const;
 
-	double getStartTime() const;
+	[[nodiscard]] double getStartTime() const;
 
-	double getEndTime() const;
+	[[nodiscard]] double getEndTime() const;
 
-	double getWaitTime() const;
+	[[nodiscard]] double getWaitTime() const;
 
-	double getMakespan() const;
+	[[nodiscard]] double getMakespan() const;
 
-	double getTurnaroundTime() const;
+	[[nodiscard]] double getTurnaroundTime() const;
 
-	const Workload* getWorkload() const;
+	[[nodiscard]] const Workload* getWorkload() const;
 
-	const std::vector<Node*>& getExecutingNodes() const;
+	[[nodiscard]] const std::vector<Node*>& getExecutingNodes() const;
 
-	const std::vector<Node*>& getExpandingNodes() const;
+	[[nodiscard]] const std::vector<Node*>& getExpandingNodes() const;
 
 	void setExpandNodes(std::vector<Node*> expandingNodes);
 
@@ -111,9 +112,9 @@ public:
 
 	void assignNumGpusPerNode(int numGpusPerNode);
 
-	int getNumberOfExecutingNodes() const;
+	[[nodiscard]] int getNumberOfExecutingNodes() const;
 
-	int getExecutingNumGpusPerNode() const;
+	[[nodiscard]] int getExecutingNumGpusPerNode() const;
 
 	void advanceWorkload(int completedPhases, int remainingIterations);
 
@@ -123,11 +124,15 @@ public:
 
 	void clearAssignedNodes();
 
+	void updateRuntimeArguments(const std::string& key, const std::string& value);
+
+	void clearRuntimeArguments();
+
 	void checkSpecification() const;
 
 	void checkConfigurationValidity() const;
 
-	nlohmann::json toJson();
+	[[nodiscard]] nlohmann::json toJson() const;
 };
 
 

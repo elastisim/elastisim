@@ -22,27 +22,15 @@ private:
 
 public:
 	CombinedGpuTask(const std::string& name, const std::string& iterations, bool synchronized,
-					const std::vector<double>& flops,
-					std::vector<double> intraNodeCommunications, std::vector<double> interNodeCommunications);
+					const std::optional<std::vector<double>>& flops, const std::optional<std::string>& computationModel,
+					VectorPattern computationPattern, const std::optional<std::string>& communicationModel,
+					MatrixPattern communicationPattern, std::optional<std::vector<double>> intraNodeCommunications,
+					std::optional<std::vector<double>> interNodeCommunications);
 
-	CombinedGpuTask(const std::string& name, const std::string& iterations, bool synchronized,
-					const std::vector<double>& flops,
-					const std::string& communicationModel, MatrixPattern communicationPattern);
+	void execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
+				 simgrid::s4u::BarrierPtr barrier) const override;
 
-	CombinedGpuTask(const std::string& name, const std::string& iterations, bool synchronized,
-					const std::string& computationModel,
-					VectorPattern computationPattern, std::vector<double> intraNodeCommunications,
-					std::vector<double> interNodeCommunications);
-
-	CombinedGpuTask(const std::string& name, const std::string& iterations, bool synchronized,
-					const std::string& computationModel,
-					VectorPattern computationPattern, const std::string& communicationModel,
-					MatrixPattern communicationPattern);
-
-	void execute(const Node* node, const Job* job,
-				 const std::vector<Node*>& nodes, int rank, simgrid::s4u::BarrierPtr barrier) const override;
-
-	void scaleTo(int numNodes, int numGpusPerNode) override;
+	void scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) override;
 
 };
 

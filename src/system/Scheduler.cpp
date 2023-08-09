@@ -46,14 +46,14 @@ void Scheduler::schedule(InvocationType invocationType, Job* requestingJob) {
 			} else {
 				// continue without reconfiguration
 				s4u_Mailbox* mailboxNode;
-				for (auto& node: requestingJob->getExecutingNodes()) {
+				for (const auto& node: requestingJob->getExecutingNodes()) {
 					assignedNodes[requestingJob].insert(node);
 					mailboxNode = s4u_Mailbox::by_name(node->getHostName());
 					mailboxNode->put(new NodeMsg(NODE_CONTINUE, requestingJob), 0);
 				}
 			}
 		}
-		for (auto& job: scheduledJobs) {
+		for (const auto& job: scheduledJobs) {
 			if (job->getState() == PENDING_ALLOCATION) {
 				forwardJobAllocation(job);
 			} else if (job->getState() == PENDING_KILL) {
@@ -79,7 +79,7 @@ void Scheduler::handleProcessedWorkload(Job* job, Node* node) {
 	assignedNodes[job].erase(node);
 	if (assignedNodes[job].empty()) {
 		s4u_Mailbox* mailboxNode;
-		for (auto& node: job->getExecutingNodes()) {
+		for (const auto& node: job->getExecutingNodes()) {
 			mailboxNode = s4u_Mailbox::by_name(node->getHostName());
 			mailboxNode->put(new NodeMsg(NODE_DEALLOCATE, job), 0);
 		}
@@ -101,7 +101,7 @@ void Scheduler::handleProcessedWorkload(Job* job, Node* node) {
 void Scheduler::forwardJobKill(Job* job, bool exceededWalltime) {
 	walltimeMonitors.erase(job);
 	s4u_Mailbox* mailboxNode;
-	for (auto& node: job->getExecutingNodes()) {
+	for (const auto& node: job->getExecutingNodes()) {
 		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
 		mailboxNode->put(new NodeMsg(NODE_KILL, job), 0);
 	}
@@ -120,7 +120,7 @@ void Scheduler::forwardJobAllocation(Job* job) {
 	job->setState(RUNNING);
 	modifiedJobs.push_back(job);
 	simgrid::s4u::BarrierPtr barrier = s4u_Barrier::create(job->getNumberOfExecutingNodes());
-	for (auto& node: job->getExecutingNodes()) {
+	for (const auto& node: job->getExecutingNodes()) {
 		assignedNodes[job].insert(node);
 		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
 		mailboxNode->put(new NodeMsg(NODE_ALLOCATE, job, rank++, barrier), 0);
@@ -148,7 +148,7 @@ void Scheduler::handleReconfiguration(Job* job) {
 	simgrid::s4u::BarrierPtr barrier = s4u_Barrier::create(job->getExecutingNodes().size());
 
 	// reconfigure retained nodes or accumulate new nodes to expand
-	for (auto& node: job->getExecutingNodes()) {
+	for (const auto& node: job->getExecutingNodes()) {
 		assignedNodes[job].insert(node);
 		if (previousNodes.find(node) != previousNodes.end()) {
 			mailboxNode = s4u_Mailbox::by_name(node->getHostName());
@@ -163,14 +163,14 @@ void Scheduler::handleReconfiguration(Job* job) {
 	int expandRank = 0;
 	job->setExpandNodes(expandNodes);
 	simgrid::s4u::BarrierPtr expandBarrier = s4u_Barrier::create(expandNodes.size());
-	for (auto& node: expandNodes) {
+	for (const auto& node: expandNodes) {
 		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
 		mailboxNode->put(new NodeMsg(NODE_EXPAND, job, ranks[node->getHostName()],
 									 expandRank++, barrier, expandBarrier), 0);
 	}
 
 	// deallocate nodes which are no longer assigned in this configuration
-	for (auto& node: previousNodes) {
+	for (const auto& node: previousNodes) {
 		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
 		if (newNodes.find(node) == newNodes.end()) {
 			mailboxNode->put(new NodeMsg(NODE_DEALLOCATE, job), 0);
@@ -191,7 +191,7 @@ void Scheduler::handleSchedulingPoint(Job* job, Node* node, int completedPhases,
 			} else {
 				// continue without reconfiguration
 				s4u_Mailbox* mailboxNode;
-				for (auto& node: job->getExecutingNodes()) {
+				for (const auto& node: job->getExecutingNodes()) {
 					assignedNodes[job].insert(node);
 					mailboxNode = s4u_Mailbox::by_name(node->getHostName());
 					mailboxNode->put(new NodeMsg(NODE_CONTINUE, job), 0);
@@ -225,7 +225,7 @@ void Scheduler::operator()() {
 
 	// main loop
 	while (true) {
-		auto payload = mailboxScheduler->get_unique<SchedMsg>();
+		const auto& payload = mailboxScheduler->get_unique<SchedMsg>();
 		if (payload->getType() == INVOKE_SCHEDULING) {
 			schedule(INVOKE_PERIODIC);
 		} else if (payload->getType() == JOB_SUBMIT) {

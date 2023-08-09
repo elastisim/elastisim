@@ -127,7 +127,7 @@ void Node::collectStatistics() {
 	std::string expectedJobIds = "none";
 	if (!expectedJobs.empty()) {
 		expectedJobIds.clear();
-		for (auto& job: expectedJobs) {
+		for (const auto& job: expectedJobs) {
 			expectedJobIds += std::to_string(job->getId()) + ";";
 		}
 		expectedJobIds.pop_back();
@@ -135,7 +135,7 @@ void Node::collectStatistics() {
 	std::string jobIds = "none";
 	if (!runningJobs.empty()) {
 		jobIds.clear();
-		for (auto& job: runningJobs) {
+		for (const auto& job: runningJobs) {
 			jobIds += std::to_string(job->getId()) + ";";
 		}
 		jobIds.pop_back();
@@ -150,11 +150,11 @@ void Node::collectStatistics() {
 Node::Node(int id, NodeType type, s4u_Host* host, s4u_Disk* nodeLocalBurstBuffer,
 		   std::vector<s4u_Host*> pfsHosts, double flopsPerByte, std::vector<std::unique_ptr<Gpu>> gpus,
 		   long gpuToGpuBandwidth, std::ofstream& nodeUtilizationOutput, std::ofstream& taskTimes) :
-		id(id), type(type), host(host), nodeLocalBurstBuffer(nodeLocalBurstBuffer), state(NODE_FREE),
-		pfsHosts(std::move(pfsHosts)), flopsPerByte(flopsPerByte), gpus(std::move(gpus)),
-		gpuToGpuBandwidth(gpuToGpuBandwidth), nodeUtilizationOutput(nodeUtilizationOutput),
+		id(id), type(type), host(host), nodeLocalBurstBuffer(nodeLocalBurstBuffer), pfsHosts(std::move(pfsHosts)),
+		state(NODE_FREE), nodeUtilizationOutput(nodeUtilizationOutput), flopsPerByte(flopsPerByte),
+		gpus(std::move(gpus)), gpuToGpuBandwidth(gpuToGpuBandwidth),
 		allowOversubscription(Configuration::getBoolIfExists("allow_oversubscription")), taskTimes(taskTimes) {
-	for (auto& gpu: Node::gpus) {
+	for (const auto& gpu: Node::gpus) {
 		gpuPointers.push_back(gpu.get());
 	}
 }
@@ -187,12 +187,36 @@ double Node::getFlopsPerByte() const {
 	return flopsPerByte;
 }
 
-const std::vector<Gpu*>& Node::getGpus() const {
+const std::vector<const Gpu*>& Node::getGpus() const {
 	return gpuPointers;
 }
 
 long Node::getGpuToGpuBandwidth() const {
 	return gpuToGpuBandwidth;
+}
+
+std::vector<s4u_Mailbox*> Node::execGpuComputationAsync(int numGpus, double flopsPerGpu) const {
+	if (numGpus == 1) {
+		XBT_INFO("Processing %f FLOPS on one GPU", flopsPerGpu);
+	} else {
+		XBT_INFO("Processing %f FLOPS on %u GPUs (%f each)", numGpus * flopsPerGpu, numGpus, flopsPerGpu);
+	}
+	std::vector<Gpu*> gpuCandidates;
+	std::vector<Gpu*> allocatedGpus;
+	for (const auto& gpu: gpus) {
+		if (gpu->getState() == GPU_FREE) {
+			gpuCandidates.push_back(gpu.get());
+		} else {
+			allocatedGpus.push_back(gpu.get());
+		}
+	}
+	gpuCandidates.insert(std::end(gpuCandidates), std::begin(allocatedGpus), std::end(allocatedGpus));
+	std::vector<s4u_Mailbox*> gpuCallbacks;
+	gpuCallbacks.reserve(numGpus);
+	for (int i = 0; i < numGpus; ++i) {
+		gpuCallbacks.push_back(gpuCandidates[i]->execAsync(flopsPerGpu));
+	}
+	return gpuCallbacks;
 }
 
 void Node::occupyGpuLink() const {
@@ -208,14 +232,12 @@ s4u_Mailbox* Node::execGpuTransferAsync(const std::vector<double>& bytes, int nu
 
 	int gpuPairs = ((numGpus - 1) * numGpus) / 2;
 	std::vector<double> exchangedBytes(gpuPairs);
-	int index = 0;
+	double maxBytes = 0;
 	for (int i = 0; i < numGpus; ++i) {
 		for (int j = i + 1; j < numGpus; ++j) {
-			exchangedBytes[index] = bytes[i * numGpus + j];
-			exchangedBytes[index++] = bytes[j * numGpus + i];
+			maxBytes = std::max(maxBytes, bytes[i * numGpus + j] + bytes[j * numGpus + i]);
 		}
 	}
-	double maxBytes = *std::max_element(std::begin(exchangedBytes), std::end(exchangedBytes));
 	XBT_INFO("Transferring intra-node communication (dominant communication %f bytes) via GPU link", maxBytes);
 	s4u_Actor::create("GPULink@" + getHostName(), host,
 					  AsyncSleep(maxBytes / gpuToGpuBandwidth,
@@ -300,7 +322,7 @@ void Node::act() {
 	PlatformManager::addModifiedComputeNode(this);
 	// main loop
 	while (true) {
-		auto payload = mailbox->get_unique<NodeMsg>();
+		const auto& payload = mailbox->get_unique<NodeMsg>();
 		if (payload->getType() == NODE_ALLOCATE) {
 			XBT_INFO("Received job to allocate");
 			handleJobAllocation(payload->getJob(), payload->getRank(), payload->getBarrier());
@@ -340,11 +362,11 @@ nlohmann::json Node::toJson() {
 	json["type"] = type;
 	json["state"] = state;
 	json["assigned_jobs"] = nlohmann::json::array();
-	for (auto& job: runningJobs) {
+	for (const auto& job: runningJobs) {
 		json["assigned_jobs"].push_back(job->getId());
 	}
 	json["gpus"] = nlohmann::json::array();
-	for (auto& gpu: gpus) {
+	for (const auto& gpu: gpus) {
 		json["gpus"].push_back(gpu->toJson());
 	}
 	return json;

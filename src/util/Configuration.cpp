@@ -25,7 +25,7 @@ void Configuration::init(const std::string& configurationFilePath) {
 	}
 }
 
-nlohmann::basic_json<> Configuration::get(const std::string& key) {
+nlohmann::json Configuration::get(const std::string& key) {
 	return configuration[key];
 }
 

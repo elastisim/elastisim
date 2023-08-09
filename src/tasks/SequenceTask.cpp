@@ -14,6 +14,7 @@
 #include <xbt.h>
 #include "Job.h"
 #include "Node.h"
+#include "Utility.h"
 
 XBT_LOG_NEW_DEFAULT_CATEGORY(SequenceTask, "Messages within the Sequence Task");
 
@@ -21,46 +22,14 @@ SequenceTask::SequenceTask(const std::string& name, const std::string& iteration
 						   std::deque<std::unique_ptr<Task>> tasks) :
 		Task(name, iterations, synchronized), tasks(std::move(tasks)) {}
 
-double SequenceTask::logTaskStart(const Task* task, int iterations) {
-	if (task->getName().empty()) {
-		XBT_INFO("Starting task with %d iteration(s)...", iterations);
-	} else {
-		XBT_INFO("Starting task %s with %d iteration(s)...", task->getName().c_str(), iterations);
-	}
-	return simgrid::s4u::Engine::get_clock();
-}
-
-double SequenceTask::logTaskEnd(const Task* task, double start) {
-	if (task->getName().empty()) {
-		XBT_INFO("Task finished after %f seconds", simgrid::s4u::Engine::get_clock() - start);
-	} else {
-		XBT_INFO("Task %s finished after %f seconds", task->getName().c_str(),
-				 simgrid::s4u::Engine::get_clock() - start);
-	}
-	return simgrid::s4u::Engine::get_clock() - start;
-}
-
-double SequenceTask::logIterationStart(int iterations, int i) {
-	if (iterations > 1) {
-		XBT_INFO("Executing iteration %d...", i);
-	}
-	return simgrid::s4u::Engine::get_clock();
-}
-
-void SequenceTask::logIterationEnd(int iterations, int i, double start) {
-	if (iterations > 1) {
-		XBT_INFO("Finished iteration %d after %f seconds", i, simgrid::s4u::Engine::get_clock() - start);
-	}
-}
-
 void SequenceTask::execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
 						   simgrid::s4u::BarrierPtr barrier) const {
 	std::vector<simgrid::s4u::ActivityPtr> asyncActivities;
-	for (auto& task: tasks) {
+	for (const auto& task: tasks) {
 		int iterations = task->getIterations();
-		double taskStart = logTaskStart(task.get(), iterations);
+		double taskStart = Utility::logTaskStart(task.get(), iterations);
 		for (int i = 0; i < iterations; ++i) {
-			double iterationStart = logIterationStart(iterations, i);
+			double iterationStart = Utility::logIterationStart(iterations, i);
 			if (task->isSynchronized()) {
 				barrier->wait();
 			}
@@ -70,18 +39,19 @@ void SequenceTask::execute(const Node* node, const Job* job, const std::vector<N
 			} else {
 				task->execute(node, job, nodes, rank, barrier);
 			}
-			logIterationEnd(iterations, i, iterationStart);
+			Utility::logIterationEnd(iterations, i, iterationStart);
 		}
-		node->logTaskTime(job, task.get(), logTaskEnd(task.get(), taskStart));
+		node->logTaskTime(job, task.get(), Utility::logTaskEnd(task.get(), taskStart));
 	}
-	for (auto& activity: asyncActivities) {
+	for (const auto& activity: asyncActivities) {
 		activity->wait();
 	}
 }
 
-void SequenceTask::scaleTo(int numNodes, int numGpusPerNode) {
-	Task::scaleTo(numNodes, numGpusPerNode);
-	for (auto& task: tasks) {
-		task->scaleTo(numNodes, numGpusPerNode);
+void
+SequenceTask::scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) {
+	Task::scaleTo(numNodes, numGpusPerNode, runtimeArguments);
+	for (const auto& task: tasks) {
+		task->scaleTo(numNodes, numGpusPerNode, runtimeArguments);
 	}
 }

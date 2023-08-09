@@ -28,18 +28,18 @@ bool PlatformManager::initialized = false;
 void PlatformManager::init(std::vector<std::unique_ptr<Node>> initialNodes) {
 	if (!initialized) {
 		nodes = std::move(initialNodes);
-		for (auto& node: nodes) {
+		for (const auto& node: nodes) {
 			computeNodes.push_back(node.get());
 		}
 		simgrid::s4u::Engine* engine = simgrid::s4u::Engine::get_instance();
 
-		for (auto& linkName: Configuration::get("pfs_read_links")) {
+		for (const auto& linkName: Configuration::get("pfs_read_links")) {
 			s4u_Link* link = engine->link_by_name(linkName);
 			pfsReadBandwidth += engine->link_by_name(linkName)->get_bandwidth();
 			pfsReadLinks.push_back(link);
 		}
 
-		for (auto& linkName: Configuration::get("pfs_write_links")) {
+		for (const auto& linkName: Configuration::get("pfs_write_links")) {
 			s4u_Link* link = engine->link_by_name(linkName);
 			pfsWriteBandwidth += engine->link_by_name(linkName)->get_bandwidth();
 			pfsWriteLinks.push_back(link);
@@ -69,7 +69,7 @@ void PlatformManager::clearModifiedComputeNodes() {
 
 double PlatformManager::getPfsReadUtilization() {
 	double pfsRead = 0;
-	for (auto& link: pfsReadLinks) {
+	for (const auto& link: pfsReadLinks) {
 		pfsRead += link->get_usage();
 	}
 	return pfsRead;
@@ -77,7 +77,7 @@ double PlatformManager::getPfsReadUtilization() {
 
 double PlatformManager::getPfsWriteUtilization() {
 	double pfsWrite = 0;
-	for (auto& link: pfsWriteLinks) {
+	for (const auto& link: pfsWriteLinks) {
 		pfsWrite += link->get_usage();
 	}
 	return pfsWrite;

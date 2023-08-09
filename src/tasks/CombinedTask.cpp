@@ -13,35 +13,23 @@
 
 #include <simgrid/s4u.hpp>
 #include <utility>
-#include "Job.h"
 #include "Utility.h"
 
 CombinedTask::CombinedTask(const std::string& name, const std::string& iterations, bool synchronized,
-						   std::vector<double> flops) :
-		Task(name, iterations, synchronized), flops(std::move(flops)) {}
-
-CombinedTask::CombinedTask(const std::string& name, const std::string& iterations, bool synchronized,
-						   std::vector<double> flops, std::string communicationModel,
+						   std::optional<std::vector<double>> flops, std::optional<std::string> computationModel,
+						   VectorPattern computationPattern, std::optional<std::string> communicationModel,
 						   MatrixPattern communicationPattern) :
-		Task(name, iterations, synchronized), flops(std::move(flops)),
-		communicationModel(std::move(communicationModel)),
+		Task(name, iterations, synchronized),
+		flops(flops.has_value() ? std::move(flops.value()) : std::vector<double>()),
+		computationModel(computationModel.has_value() ? std::move(computationModel.value()) : ""),
+		computationPattern(computationPattern),
+		communicationModel(communicationModel.has_value() ? std::move(communicationModel.value()) : ""),
 		communicationPattern(communicationPattern) {}
 
-CombinedTask::CombinedTask(const std::string& name, const std::string& iterations, bool synchronized,
-						   std::string computationModel, VectorPattern computationPattern) :
-		Task(name, iterations, synchronized), computationModel(std::move(computationModel)),
-		computationPattern(computationPattern) {}
-
-CombinedTask::CombinedTask(const std::string& name, const std::string& iterations, bool synchronized,
-						   std::string computationModel, VectorPattern computationPattern,
-						   std::string communicationModel, MatrixPattern communicationPattern) :
-		Task(name, iterations, synchronized), computationModel(std::move(computationModel)),
-		computationPattern(computationPattern), communicationModel(std::move(communicationModel)),
-		communicationPattern(communicationPattern) {}
-
-void CombinedTask::scaleTo(int numNodes, int numGpusPerNode) {
-	Task::scaleTo(numNodes, numGpusPerNode);
+void
+CombinedTask::scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) {
+	Task::scaleTo(numNodes, numGpusPerNode, runtimeArguments);
 	if (!computationModel.empty()) {
-		flops = Utility::createVector(computationModel, computationPattern, numNodes, numGpusPerNode);
+		flops = Utility::createVector(computationModel, computationPattern, numNodes, numGpusPerNode, runtimeArguments);
 	}
 }

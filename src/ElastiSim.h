@@ -17,7 +17,7 @@
 class ElastiSim {
 
 private:
-	static std::string getPropertyIfExists(const char* property);
+	[[nodiscard]] static std::string getPropertyIfExists(const char* property);
 
 public:
 	static void startSimulation(int host, char* argv[]);

@@ -45,15 +45,15 @@ public:
 	SchedMsg(SchedEventType type, Job* job, Node* node,
 			 int completedPhases, int remainingIterations);
 
-	SchedEventType getType() const;
+	[[nodiscard]] SchedEventType getType() const;
 
-	Job* getJob() const;
+	[[nodiscard]] Job* getJob() const;
 
-	Node* getNode() const;
+	[[nodiscard]] Node* getNode() const;
 
-	int getCompletedPhases() const;
+	[[nodiscard]] int getCompletedPhases() const;
 
-	int getRemainingIterations() const;
+	[[nodiscard]] int getRemainingIterations() const;
 
 };
 

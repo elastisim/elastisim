@@ -20,7 +20,7 @@ Workload::Workload(std::unique_ptr<Phase> initPhase, std::unique_ptr<Phase> reco
 		: initPhase(std::move(initPhase)), reconfigurationPhase(std::move(reconfigurationPhase)),
 		  expansionPhase(std::move(expansionPhase)), phases(std::move(phases)) {
 	totalPhaseCount = 0;
-	for (auto& phase: Workload::phases) {
+	for (const auto& phase: Workload::phases) {
 		totalPhaseCount += phase->getIterations();
 		phasePointers.push_back(phase.get());
 	}
@@ -39,7 +39,7 @@ const Phase* Workload::getExpansionPhase() const {
 	return expansionPhase.get();
 }
 
-const std::deque<Phase*>& Workload::getPhases() const {
+const std::deque<const Phase*>& Workload::getPhases() const {
 	return phasePointers;
 }
 
@@ -51,27 +51,27 @@ int Workload::getCompletedPhases() const {
 	return completedPhases;
 }
 
-void Workload::scaleInitPhaseTo(int numNodes, int numGpusPerNode) {
+void Workload::scaleInitPhaseTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) {
 	if (initPhase) {
-		initPhase->scaleTo(numNodes, numGpusPerNode);
+		initPhase->scaleTo(numNodes, numGpusPerNode, runtimeArguments);
 	}
 }
 
-void Workload::scaleReconfigurationPhaseTo(int numNodes, int numGpusPerNode) {
+void Workload::scaleReconfigurationPhaseTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) {
 	if (reconfigurationPhase) {
-		reconfigurationPhase->scaleTo(numNodes, numGpusPerNode);
+		reconfigurationPhase->scaleTo(numNodes, numGpusPerNode, runtimeArguments);
 	}
 }
 
-void Workload::scaleExpandPhaseTo(int numNodes, int numGpusPerNode) {
+void Workload::scaleExpandPhaseTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) {
 	if (expansionPhase) {
-		expansionPhase->scaleTo(numNodes, numGpusPerNode);
+		expansionPhase->scaleTo(numNodes, numGpusPerNode, runtimeArguments);
 	}
 }
 
-void Workload::scaleTo(int numNodes, int numGpusPerNode) {
-	for (auto& phase: phases) {
-		phase->scaleTo(numNodes, numGpusPerNode);
+void Workload::scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments) {
+	for (const auto& phase: phases) {
+		phase->scaleTo(numNodes, numGpusPerNode, runtimeArguments);
 	}
 }
 

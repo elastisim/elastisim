@@ -14,6 +14,7 @@
 
 #include <deque>
 #include <memory>
+#include <map>
 
 class Task;
 
@@ -21,7 +22,7 @@ class Phase {
 
 private:
 	std::deque<std::unique_ptr<Task>> tasks;
-	std::deque<Task*> taskPointers;
+	std::deque<const Task*> taskPointers;
 	int iterations;
 	bool schedulingPoint;
 	bool finalSchedulingPoint;
@@ -31,19 +32,19 @@ public:
 	Phase(std::deque<std::unique_ptr<Task>> tasks, int iterations, bool schedulingPoint, bool finalSchedulingPoint,
 		  bool barrier);
 
-	const std::deque<Task*>& getTasks() const;
+	[[nodiscard]] const std::deque<const Task*>& getTasks() const;
 
-	int getIterations() const;
+	[[nodiscard]] int getIterations() const;
 
 	void setIterations(int iterations);
 
-	bool hasSchedulingPoint() const;
+	[[nodiscard]] bool hasSchedulingPoint() const;
 
-	bool hasFinalSchedulingPoint() const;
+	[[nodiscard]] bool hasFinalSchedulingPoint() const;
 
-	bool hasBarrier() const;
+	[[nodiscard]] bool hasBarrier() const;
 
-	void scaleTo(int numNodes, int numGpusPerNode);
+	void scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments);
 };
 
 

@@ -32,15 +32,18 @@ private:
 	static zmq::context_t context;
 	static zmq::socket_t socket;
 
-	static void invokeScheduling(InvocationType invocationType, const std::vector<Job*>& jobQueue, const Job* requestingJob);
+	static void
+	invokeScheduling(InvocationType invocationType, const std::vector<Job*>& modifiedJobs, const Job* requestingJob);
 
 public:
 	static void init();
 
-	static std::vector<Job*> handleSchedule(const nlohmann::json& jsonJobs, const std::vector<Job*>& jobQueue);
+	[[nodiscard]] static std::vector<Job*>
+	handleSchedule(const nlohmann::json& jsonJobs, const std::vector<Job*>& jobQueue);
 
-	static std::vector<Job*> schedule(InvocationType invocationType, const std::vector<Job*>& jobQueue,
-									  const std::vector<Job*>& modifiedJobs, const Job* requestingJob);
+	[[nodiscard]] static std::vector<Job*>
+	schedule(InvocationType invocationType, const std::vector<Job*>& jobQueue, const std::vector<Job*>& modifiedJobs,
+			 const Job* requestingJob);
 
 	static void finalize();
 
