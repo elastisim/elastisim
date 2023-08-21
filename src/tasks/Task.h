@@ -12,6 +12,7 @@
 #define ELASTISIM_TASK_H
 
 #include <vector>
+#include <optional>
 #include <simgrid/s4u.hpp>
 
 class Node;
