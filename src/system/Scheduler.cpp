@@ -91,7 +91,7 @@ void Scheduler::handleProcessedWorkload(Job* job, Node* node) {
 			walltimeMonitors.erase(job);
 		}
 		s4u_Mailbox* mailboxSimulator = s4u_Mailbox::by_name("SimulationEngine");
-		mailboxSimulator->put(new SimMsg(JOB_COMPLETED, job->getId()), 0);
+		mailboxSimulator->put_init(new SimMsg(JOB_COMPLETED, job->getId()), 0)->detach();
 		if (scheduleOnJobFinalize) {
 			schedule(INVOKE_JOB_COMPLETED, job);
 		}
@@ -108,7 +108,7 @@ void Scheduler::forwardJobKill(Job* job, bool exceededWalltime) {
 	job->setState(KILLED);
 	modifiedJobs.push_back(job);
 	s4u_Mailbox* mailboxSimulator = s4u_Mailbox::by_name("SimulationEngine");
-	mailboxSimulator->put(new SimMsg(JOB_KILLED, job->getId()), 0);
+	mailboxSimulator->put_init(new SimMsg(JOB_KILLED, job->getId()), 0)->detach();
 	if (exceededWalltime && scheduleOnJobFinalize) {
 		schedule(INVOKE_JOB_KILLED, job);
 	}
@@ -249,7 +249,5 @@ void Scheduler::operator()() {
 			break;
 		}
 	}
-
-	// finalization
 
 }

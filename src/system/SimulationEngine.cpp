@@ -63,7 +63,7 @@ void SimulationEngine::operator()() {
 	mailboxScheduler->put(new SchedMsg(SCHEDULER_FINALIZE), 0);
 	for (const auto& node: PlatformManager::getComputeNodes()) {
 		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-		mailboxNode->put(new NodeMsg(NODE_FINALIZE), 0);
+		mailboxNode->put_init(new NodeMsg(NODE_FINALIZE), 0)->detach();
 	}
 
 	jobStatistics << "ID,Type,Submit Time,Start Time,End Time,Wait Time,Makespan,Turnaround Time,Status" << std::endl;

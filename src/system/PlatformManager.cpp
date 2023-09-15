@@ -70,7 +70,7 @@ void PlatformManager::clearModifiedComputeNodes() {
 double PlatformManager::getPfsReadUtilization() {
 	double pfsRead = 0;
 	for (const auto& link: pfsReadLinks) {
-		pfsRead += link->get_usage();
+		pfsRead += link->get_load();
 	}
 	return pfsRead;
 }
@@ -78,7 +78,7 @@ double PlatformManager::getPfsReadUtilization() {
 double PlatformManager::getPfsWriteUtilization() {
 	double pfsWrite = 0;
 	for (const auto& link: pfsWriteLinks) {
-		pfsWrite += link->get_usage();
+		pfsWrite += link->get_load();
 	}
 	return pfsWrite;
 }

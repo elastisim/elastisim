@@ -94,7 +94,7 @@ void Sensing::operator()() const {
 
 		networkUsage = 0;
 		for (const auto& link: links) {
-			networkUsage += link->get_usage() / link->get_bandwidth();
+			networkUsage += link->get_load() / link->get_bandwidth();
 		}
 		networkActivity << time << ",";
 		networkActivity << networkUsage / numberOfLinks << std::endl;

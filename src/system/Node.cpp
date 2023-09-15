@@ -352,8 +352,6 @@ void Node::act() {
 		}
 	}
 
-	// finalization
-
 }
 
 nlohmann::json Node::toJson() {
