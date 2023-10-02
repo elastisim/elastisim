@@ -25,17 +25,14 @@ enum SimEventType {
 class SimMsg {
 
 private:
-	SimEventType type;
-	size_t numberOfJobs;
+	const SimEventType type;
+	const size_t numberOfJobs;
 	std::unique_ptr<Job> job;
-	int jobId;
 
 public:
 	SimMsg(SimEventType type, size_t numberOfJobs);
 
 	SimMsg(SimEventType type, std::unique_ptr<Job> job);
-
-	SimMsg(SimEventType type, int jobId);
 
 	[[nodiscard]] SimEventType getType() const;
 
@@ -43,7 +40,6 @@ public:
 
 	[[nodiscard]] std::unique_ptr<Job> getJob();
 
-	[[nodiscard]] int getJobId() const;
 };
 
 

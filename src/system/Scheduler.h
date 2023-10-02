@@ -32,15 +32,16 @@ class Scheduler {
 
 private:
 	s4u_Host* masterHost;
-	double schedulingInterval;
-	double minSchedulingInterval;
+	const double schedulingInterval;
+	const double minSchedulingInterval;
 	double lastInvocation;
-	bool scheduleOnJobSubmit;
-	bool scheduleOnJobFinalize;
-	bool scheduleOnSchedulingPoint;
+	const bool scheduleOnJobSubmit;
+	const bool scheduleOnJobFinalize;
+	const bool scheduleOnSchedulingPoint;
+	const double gracePeriod;
 	std::vector<Job*> jobQueue;
 	std::vector<Job*> modifiedJobs;
-	std::map<Job*, simgrid::s4u::ActorPtr> walltimeMonitors;
+	std::map<Job*, s4u_Actor*> walltimeMonitors;
 	std::map<Job*, std::set<Node*>> assignedNodes;
 	int currentJobId;
 
@@ -48,7 +49,7 @@ private:
 
 	void handleJobSubmit(Job* job);
 
-	void handleProcessedWorkload(Job* job, Node* node);
+	void handleProcessedWorkload(Job* job);
 
 	void forwardJobKill(Job* job, bool exceededWalltime);
 
@@ -56,7 +57,7 @@ private:
 
 	void handleReconfiguration(Job* job);
 
-	void handleSchedulingPoint(Job* job, Node* node, int completedPhases, int remainingIterations);
+	void handleSchedulingPoint(Job* job);
 
 	void checkConfigurationValidity() const;
 

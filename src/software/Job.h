@@ -42,16 +42,16 @@ class Job {
 
 private:
 	int id;
-	JobType type;
+	const JobType type;
 	JobState state;
-	double walltime;
-	int numNodes;
-	int numGpusPerNode;
-	int numNodesMin;
-	int numNodesMax;
-	int numGpusPerNodeMin;
-	int numGpusPerNodeMax;
-	double submitTime;
+	const double walltime;
+	const int numNodes;
+	const int numGpusPerNode;
+	const int numNodesMin;
+	const int numNodesMax;
+	const int numGpusPerNodeMin;
+	const int numGpusPerNodeMax;
+	const double submitTime;
 	double startTime;
 	double endTime;
 	double waitTime;

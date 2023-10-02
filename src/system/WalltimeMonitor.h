@@ -11,17 +11,16 @@
 #ifndef ELASTISIM_WALLTIMEMONITOR_H
 #define ELASTISIM_WALLTIMEMONITOR_H
 
-#include <memory>
-
 class Job;
 
 class WalltimeMonitor {
 
 private:
 	Job* job;
+	const double gracePeriod;
 
 public:
-	explicit WalltimeMonitor(Job* job);
+	explicit WalltimeMonitor(Job* job, double gracePeriod);
 
 	void operator()();
 };

@@ -42,10 +42,10 @@ enum MatrixPattern {
 class Task {
 
 private:
-	std::string name;
-	std::string iterationModel;
+	const std::string name;
+	const std::string iterationModel;
 	int iterations;
-	bool synchronized;
+	const bool synchronized;
 
 public:
 	Task(std::string name, std::string iterations, bool synchronized);
@@ -62,8 +62,8 @@ public:
 
 	[[nodiscard]] virtual bool isAsynchronous() const;
 
-	virtual void execute(const Node* node, const Job* job,
-						 const std::vector<Node*>& nodes, int rank, simgrid::s4u::BarrierPtr barrier) const = 0;
+	virtual void execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
+						 simgrid::s4u::BarrierPtr barrier) const = 0;
 
 	[[nodiscard]] virtual std::vector<simgrid::s4u::ActivityPtr>
 	executeAsync(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank) const;

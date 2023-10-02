@@ -14,6 +14,8 @@
 #include <fstream>
 #include <memory>
 
+#include <indicators.hpp>
+
 #include "Workload.h"
 #include "Phase.h"
 #include "Utility.h"
@@ -21,10 +23,9 @@
 #include "Node.h"
 #include "SimMsg.h"
 #include "SchedMsg.h"
-#include "NodeMsg.h"
 #include "Configuration.h"
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(SimulationEngine, "Messages within the Simulator actor");
+XBT_LOG_NEW_DEFAULT_CATEGORY(SimulationEngine, "Messages within the SimulationEngine actor");
 
 SimulationEngine::SimulationEngine() = default;
 
@@ -33,17 +34,35 @@ void SimulationEngine::operator()() {
 	// initialization
 	s4u_Mailbox* mailboxSimulator = s4u_Mailbox::by_name("SimulationEngine");
 	s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
-	s4u_Mailbox* mailboxNode;
 
 	std::ofstream jobStatistics(Configuration::get("job_statistics"));
 
 	const auto& numJobsMsg = mailboxSimulator->get_unique<SimMsg>();
+	size_t expectedJobs = numJobsMsg->getNumberOfJobs();
 	std::vector<std::unique_ptr<Job>> jobs;
-	std::list<int> expectedJobs(numJobsMsg->getNumberOfJobs());
-	std::iota(std::begin(expectedJobs), std::end(expectedJobs), 0);
+	jobs.reserve(expectedJobs);
+
+	indicators::BlockProgressBar progressBar{
+			indicators::option::BarWidth{80},
+			indicators::option::ForegroundColor{indicators::Color::green},
+			indicators::option::ShowElapsedTime{true},
+			indicators::option::ShowRemainingTime{true},
+			indicators::option::FontStyles{std::vector<indicators::FontStyle>{indicators::FontStyle::bold}},
+			indicators::option::MaxProgress{expectedJobs},
+			indicators::option::PostfixText{"0/" + std::to_string(expectedJobs) + " jobs processed"}
+	};
+
+	const bool infoLevel = XBT_LOG_ISENABLED(root, xbt_log_priority_info);
+
+	if (!infoLevel) {
+		indicators::show_console_cursor(false);
+		progressBar.set_progress(0);
+	}
 
 	// main loop
-	while (!expectedJobs.empty()) {
+	int processedJobs = 0;
+	size_t numberOfJobs = expectedJobs;
+	while (expectedJobs > 0) {
 		const auto& payload = mailboxSimulator->get_unique<SimMsg>();
 		if (payload->getType() == SUBMIT_JOB) {
 			XBT_INFO("Registered job submission");
@@ -51,20 +70,31 @@ void SimulationEngine::operator()() {
 			mailboxScheduler->put(new SchedMsg(JOB_SUBMIT, jobs.back().get()), 0);
 		} else if (payload->getType() == JOB_COMPLETED) {
 			XBT_INFO("Registered job completion");
-			expectedJobs.remove(payload->getJobId());
+			expectedJobs--;
+			if (!infoLevel) {
+				progressBar.set_option(indicators::option::PostfixText{
+						std::to_string(++processedJobs) + "/" + std::to_string(numberOfJobs) + " jobs processed"});
+				progressBar.tick();
+			}
 		} else if (payload->getType() == JOB_KILLED) {
 			XBT_INFO("Registered job kill");
-			expectedJobs.remove(payload->getJobId());
+			expectedJobs--;
+			if (!infoLevel) {
+				progressBar.set_option(indicators::option::PostfixText{
+						std::to_string(++processedJobs) + "/" + std::to_string(numberOfJobs) + " jobs processed"});
+				progressBar.tick();
+			}
 		}
+	}
+
+	if (!infoLevel) {
+		progressBar.mark_as_completed();
+		indicators::show_console_cursor(true);
 	}
 
 	// finalization
 	XBT_INFO("Send finalization");
 	mailboxScheduler->put(new SchedMsg(SCHEDULER_FINALIZE), 0);
-	for (const auto& node: PlatformManager::getComputeNodes()) {
-		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-		mailboxNode->put_init(new NodeMsg(NODE_FINALIZE), 0)->detach();
-	}
 
 	jobStatistics << "ID,Type,Submit Time,Start Time,End Time,Wait Time,Makespan,Turnaround Time,Status" << std::endl;
 	for (const auto& job: jobs) {

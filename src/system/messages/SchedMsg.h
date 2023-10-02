@@ -28,32 +28,18 @@ enum SchedEventType {
 class SchedMsg {
 
 private:
-	SchedEventType type;
+	const SchedEventType type;
 	Job* job;
-	Node* node;
-	int completedPhases;
-	int remainingIterations;
 
 public:
 
-	SchedMsg(SchedEventType type, Job* job);
-
-	SchedMsg(SchedEventType type, Job* job, Node* node);
-
 	explicit SchedMsg(SchedEventType type);
 
-	SchedMsg(SchedEventType type, Job* job, Node* node,
-			 int completedPhases, int remainingIterations);
+	SchedMsg(SchedEventType type, Job* job);
 
 	[[nodiscard]] SchedEventType getType() const;
 
 	[[nodiscard]] Job* getJob() const;
-
-	[[nodiscard]] Node* getNode() const;
-
-	[[nodiscard]] int getCompletedPhases() const;
-
-	[[nodiscard]] int getRemainingIterations() const;
 
 };
 

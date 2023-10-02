@@ -17,7 +17,6 @@
 #include "PeriodicInvoker.h"
 #include "SimMsg.h"
 #include "SchedMsg.h"
-#include "NodeMsg.h"
 #include "Configuration.h"
 #include "SchedulingInterface.h"
 
@@ -31,7 +30,9 @@ Scheduler::Scheduler(s4u_Host* masterHost) :
 							  (double) Configuration::get("min_scheduling_interval") : 0), lastInvocation(0),
 		scheduleOnJobSubmit(Configuration::getBoolIfExists("schedule_on_job_submit")),
 		scheduleOnJobFinalize(Configuration::getBoolIfExists("schedule_on_job_finalize")),
-		scheduleOnSchedulingPoint(Configuration::getBoolIfExists("schedule_on_scheduling_point")), currentJobId(0) {
+		scheduleOnSchedulingPoint(Configuration::getBoolIfExists("schedule_on_scheduling_point")),
+		gracePeriod(Configuration::exists("job_kill_grace_period") ?
+					(double) Configuration::get("job_kill_grace_period") : 0), currentJobId(0) {
 	checkConfigurationValidity();
 }
 
@@ -41,15 +42,15 @@ void Scheduler::schedule(InvocationType invocationType, Job* requestingJob) {
 		std::vector<Job*> scheduledJobs = SchedulingInterface::schedule(invocationType, jobQueue, modifiedJobs, requestingJob);
 		modifiedJobs.clear();
 		if (invocationType == INVOKE_SCHEDULING_POINT) {
-			if (requestingJob->getState() == PENDING_RECONFIGURATION) {
+			if (requestingJob->getState() == PENDING_KILL) {
+				forwardJobKill(requestingJob, false);
+			} else if (requestingJob->getState() == PENDING_RECONFIGURATION) {
 				handleReconfiguration(requestingJob);
 			} else {
 				// continue without reconfiguration
-				s4u_Mailbox* mailboxNode;
 				for (const auto& node: requestingJob->getExecutingNodes()) {
 					assignedNodes[requestingJob].insert(node);
-					mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-					mailboxNode->put(new NodeMsg(NODE_CONTINUE, requestingJob), 0);
+					node->continueJob(requestingJob);
 				}
 			}
 		}
@@ -75,35 +76,29 @@ void Scheduler::handleJobSubmit(Job* job) {
 	}
 }
 
-void Scheduler::handleProcessedWorkload(Job* job, Node* node) {
-	assignedNodes[job].erase(node);
-	if (assignedNodes[job].empty()) {
-		s4u_Mailbox* mailboxNode;
-		for (const auto& node: job->getExecutingNodes()) {
-			mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-			mailboxNode->put(new NodeMsg(NODE_DEALLOCATE, job), 0);
-		}
-		job->completeWorkload();
-		job->setState(COMPLETED);
-		modifiedJobs.push_back(job);
-		if (job->getWalltime() > 0) {
-			walltimeMonitors[job]->kill();
-			walltimeMonitors.erase(job);
-		}
-		s4u_Mailbox* mailboxSimulator = s4u_Mailbox::by_name("SimulationEngine");
-		mailboxSimulator->put_init(new SimMsg(JOB_COMPLETED, job->getId()), 0)->detach();
-		if (scheduleOnJobFinalize) {
-			schedule(INVOKE_JOB_COMPLETED, job);
-		}
+void Scheduler::handleProcessedWorkload(Job* job) {
+	for (const auto& node: job->getExecutingNodes()) {
+		node->completeJob(job);
+	}
+	job->completeWorkload();
+	job->setState(COMPLETED);
+	modifiedJobs.push_back(job);
+	if (job->getWalltime() > 0) {
+		walltimeMonitors[job]->kill();
+	}
+	s4u_Mailbox* mailboxSimulator = s4u_Mailbox::by_name("SimulationEngine");
+	mailboxSimulator->put_init(new SimMsg(JOB_COMPLETED, job->getId()), 0)->detach();
+	if (scheduleOnJobFinalize) {
+		schedule(INVOKE_JOB_COMPLETED, job);
 	}
 }
 
 void Scheduler::forwardJobKill(Job* job, bool exceededWalltime) {
-	walltimeMonitors.erase(job);
-	s4u_Mailbox* mailboxNode;
+	if (job->getWalltime() > 0 && !exceededWalltime) {
+		walltimeMonitors[job]->kill();
+	}
 	for (const auto& node: job->getExecutingNodes()) {
-		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-		mailboxNode->put(new NodeMsg(NODE_KILL, job), 0);
+		node->killJob(job);
 	}
 	job->setState(KILLED);
 	modifiedJobs.push_back(job);
@@ -115,24 +110,22 @@ void Scheduler::forwardJobKill(Job* job, bool exceededWalltime) {
 }
 
 void Scheduler::forwardJobAllocation(Job* job) {
-	s4u_Mailbox* mailboxNode;
 	int rank = 0;
 	job->setState(RUNNING);
 	modifiedJobs.push_back(job);
 	simgrid::s4u::BarrierPtr barrier = s4u_Barrier::create(job->getNumberOfExecutingNodes());
 	for (const auto& node: job->getExecutingNodes()) {
 		assignedNodes[job].insert(node);
-		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-		mailboxNode->put(new NodeMsg(NODE_ALLOCATE, job, rank++, barrier), 0);
+		node->allocateJob(job, rank++, barrier);
 	}
 	if (job->getWalltime() > 0) {
 		walltimeMonitors[job] = s4u_Actor::create("WalltimeMonitor@Job" + std::to_string(job->getId()),
-												  masterHost, WalltimeMonitor(job));
+												  masterHost, WalltimeMonitor(job, gracePeriod)).get();
 	}
 }
 
 void Scheduler::handleReconfiguration(Job* job) {
-	s4u_Mailbox* mailboxNode;
+
 	// continue with reconfiguration
 	std::set<Node*> previousNodes(std::begin(job->getExecutingNodes()),
 								  std::end(job->getExecutingNodes()));
@@ -143,7 +136,7 @@ void Scheduler::handleReconfiguration(Job* job) {
 							 std::end(job->getExecutingNodes()));
 
 	int rank = 0;
-	std::map<std::string, int> ranks;
+	std::map<Node*, int> ranks;
 	std::vector<Node*> expandNodes;
 	simgrid::s4u::BarrierPtr barrier = s4u_Barrier::create(job->getExecutingNodes().size());
 
@@ -151,11 +144,10 @@ void Scheduler::handleReconfiguration(Job* job) {
 	for (const auto& node: job->getExecutingNodes()) {
 		assignedNodes[job].insert(node);
 		if (previousNodes.find(node) != previousNodes.end()) {
-			mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-			mailboxNode->put(new NodeMsg(NODE_RECONFIGURE, job, rank++, barrier), 0);
+			node->reconfigureJob(job, rank++, barrier);
 		} else {
 			expandNodes.push_back(node);
-			ranks[node->getHostName()] = rank++;
+			ranks[node] = rank++;
 		}
 	}
 
@@ -164,38 +156,29 @@ void Scheduler::handleReconfiguration(Job* job) {
 	job->setExpandNodes(expandNodes);
 	simgrid::s4u::BarrierPtr expandBarrier = s4u_Barrier::create(expandNodes.size());
 	for (const auto& node: expandNodes) {
-		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-		mailboxNode->put(new NodeMsg(NODE_EXPAND, job, ranks[node->getHostName()],
-									 expandRank++, barrier, expandBarrier), 0);
+		node->expandJob(job, ranks[node], expandRank++, barrier, expandBarrier);
 	}
 
 	// deallocate nodes which are no longer assigned in this configuration
 	for (const auto& node: previousNodes) {
-		mailboxNode = s4u_Mailbox::by_name(node->getHostName());
 		if (newNodes.find(node) == newNodes.end()) {
-			mailboxNode->put(new NodeMsg(NODE_DEALLOCATE, job), 0);
+			node->completeJob(job);
 		}
 	}
 }
 
-void Scheduler::handleSchedulingPoint(Job* job, Node* node, int completedPhases, int remainingIterations) {
-	assignedNodes[job].erase(node);
-	if (assignedNodes[job].empty()) {
-		job->advanceWorkload(completedPhases, remainingIterations);
-		modifiedJobs.push_back(job);
-		if (scheduleOnSchedulingPoint) {
-			schedule(INVOKE_SCHEDULING_POINT, job);
+void Scheduler::handleSchedulingPoint(Job* job) {
+	modifiedJobs.push_back(job);
+	if (scheduleOnSchedulingPoint) {
+		schedule(INVOKE_SCHEDULING_POINT, job);
+	} else {
+		if (job->getState() == PENDING_RECONFIGURATION) {
+			handleReconfiguration(job);
 		} else {
-			if (job->getState() == PENDING_RECONFIGURATION) {
-				handleReconfiguration(job);
-			} else {
-				// continue without reconfiguration
-				s4u_Mailbox* mailboxNode;
-				for (const auto& node: job->getExecutingNodes()) {
-					assignedNodes[job].insert(node);
-					mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-					mailboxNode->put(new NodeMsg(NODE_CONTINUE, job), 0);
-				}
+			// continue without reconfiguration
+			for (const auto& node: job->getExecutingNodes()) {
+				assignedNodes[job].insert(node);
+				node->continueJob(job);
 			}
 		}
 	}
@@ -211,6 +194,9 @@ void Scheduler::checkConfigurationValidity() const {
 	if (schedulingInterval == 0 && (!scheduleOnJobSubmit || !scheduleOnJobFinalize)) {
 		xbt_die("Scheduling algorithm must be invoked at least periodically or on job submission and job finalization");
 	}
+	if (gracePeriod < 0) {
+		xbt_die("Grace period of maximum job walltime can not be less than 0");
+	}
 }
 
 void Scheduler::operator()() {
@@ -219,9 +205,8 @@ void Scheduler::operator()() {
 	if (schedulingInterval > 0) {
 		s4u_Actor::create("PeriodicInvoker", masterHost, PeriodicInvoker(schedulingInterval));
 	}
-	s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
-
 	SchedulingInterface::init();
+	s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
 
 	// main loop
 	while (true) {
@@ -232,17 +217,14 @@ void Scheduler::operator()() {
 			XBT_INFO("Received job submission");
 			handleJobSubmit(payload->getJob());
 		} else if (payload->getType() == SCHEDULING_POINT) {
-			XBT_INFO("Received scheduling point from %s running Job %d", payload->getNode()->getHostName().c_str(),
-					 payload->getJob()->getId());
-			handleSchedulingPoint(payload->getJob(), payload->getNode(), payload->getCompletedPhases(),
-								  payload->getRemainingIterations());
+			XBT_INFO("Received scheduling point from job %d", payload->getJob()->getId());
+			handleSchedulingPoint(payload->getJob());
 		} else if (payload->getType() == WALLTIME_EXCEEDED) {
 			XBT_INFO("Received exceeded walltime");
 			forwardJobKill(payload->getJob(), true);
 		} else if (payload->getType() == WORKLOAD_PROCESSED) {
-			XBT_INFO("Received workload processed message from %s running Job %d",
-					 payload->getNode()->getHostName().c_str(), payload->getJob()->getId());
-			handleProcessedWorkload(payload->getJob(), payload->getNode());
+			XBT_INFO("Received workload processed message from job %d", payload->getJob()->getId());
+			handleProcessedWorkload(payload->getJob());
 		} else if (payload->getType() == SCHEDULER_FINALIZE) {
 			XBT_INFO("Received finalization");
 			SchedulingInterface::finalize();

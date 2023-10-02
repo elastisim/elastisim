@@ -17,10 +17,7 @@
 class Sensing {
 
 private:
-	double sensingInterval;
-	std::string cpuUtilizationFile;
-	std::string networkActivityFile;
-	std::string pfsUtilizationFile;
+	const double sensingInterval;
 
 public:
 	Sensing();

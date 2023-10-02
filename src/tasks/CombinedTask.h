@@ -18,10 +18,10 @@ class CombinedTask : public Task {
 
 protected:
 	std::vector<double> flops;
-	std::string computationModel;
-	VectorPattern computationPattern;
-	std::string communicationModel;
-	MatrixPattern communicationPattern;
+	const std::string computationModel;
+	const VectorPattern computationPattern;
+	const std::string communicationModel;
+	const MatrixPattern communicationPattern;
 
 public:
 	CombinedTask(const std::string& name, const std::string& iterations, bool synchronized,

@@ -38,48 +38,31 @@ enum NodeState {
 class Node {
 
 private:
-	int id;
-	NodeType type;
+	const int id;
+	const NodeType type;
 	s4u_Host* host;
 	s4u_Disk* nodeLocalBurstBuffer;
 	std::vector<s4u_Host*> pfsHosts;
 	NodeState state;
 	std::set<Job*> runningJobs;
-	std::map<Job*, int> assignedRank;
-	std::map<Job*, int> assignedExpandRank;
-	std::map<Job*, simgrid::s4u::ActorPtr> application;
-	std::map<Job*, simgrid::s4u::BarrierPtr> barrier;
-	std::map<Job*, simgrid::s4u::BarrierPtr> expandBarrier;
+	std::unordered_map<Job*, int> assignedRank;
+	std::unordered_map<Job*, int> assignedExpandRank;
+	std::unordered_map<Job*, s4u_Actor*> application;
+	std::unordered_map<Job*, simgrid::s4u::BarrierPtr> barrier;
+	std::unordered_map<Job*, simgrid::s4u::BarrierPtr> expandBarrier;
 	std::ofstream& nodeUtilizationOutput;
-	std::map<Job*, bool> initializing;
-	std::map<Job*, bool> reconfiguring;
-	std::map<Job*, bool> expanding;
-	double flopsPerByte;
+	std::unordered_map<Job*, bool> initializing;
+	std::unordered_map<Job*, bool> reconfiguring;
+	std::unordered_map<Job*, bool> expanding;
+	const double flopsPerByte;
 	std::vector<std::unique_ptr<Gpu>> gpus;
 	std::vector<const Gpu*> gpuPointers;
-	long gpuToGpuBandwidth;
+	const long gpuToGpuBandwidth;
 	simgrid::s4u::MutexPtr gpuLinkMutex;
 	std::set<Job*> expectedJobs;
-	bool allowOversubscription;
+	const bool allowOversubscription;
+	const bool logTaskTimes;
 	std::ofstream& taskTimes;
-
-	void handleWorkloadCompletion(Job* job);
-
-	void handleJobAllocation(Job* job, int rank, const simgrid::s4u::BarrierPtr& jobBarrier);
-
-	void handleSchedulingPoint(Job* job, int completedPhases, int remainingIterations);
-
-	void continueJob(Job* job);
-
-	void
-	expandJob(Job* job, int rank, int expandRank, const simgrid::s4u::BarrierPtr& jobBarrier,
-			  const simgrid::s4u::BarrierPtr& jobExpandBarrier);
-
-	void completeJob(Job* job);
-
-	void reconfigureJob(Job* job, int rank, const simgrid::s4u::BarrierPtr& jobBarrier);
-
-	void killJob(Job* job);
 
 	void collectStatistics();
 
@@ -87,6 +70,19 @@ public:
 	Node(int id, NodeType type, s4u_Host* host, s4u_Disk* nodeLocalBurstBuffer, std::vector<s4u_Host*> pfsHosts,
 		 double flopsPerByte, std::vector<std::unique_ptr<Gpu>> gpus, long gpuToGpuBandwidth,
 		 std::ofstream& nodeUtilizationOutput, std::ofstream& taskTimes);
+
+	void allocateJob(Job* job, int rank, const simgrid::s4u::BarrierPtr& jobBarrier);
+
+	void continueJob(Job* job);
+
+	void reconfigureJob(Job* job, int rank, const simgrid::s4u::BarrierPtr& jobBarrier);
+
+	void expandJob(Job* job, int rank, int expandRank, const simgrid::s4u::BarrierPtr& jobBarrier,
+				   const simgrid::s4u::BarrierPtr& jobExpandBarrier);
+
+	void completeJob(Job* job);
+
+	void killJob(Job* job);
 
 	[[nodiscard]] int getId() const;
 
@@ -137,8 +133,6 @@ public:
 	void removeExpectedJob(Job* job);
 
 	void logTaskTime(const Job* job, const Task* task, double duration) const;
-
-	void act();
 
 	[[nodiscard]] nlohmann::json toJson();
 

@@ -15,13 +15,13 @@
 #include "Workload.h"
 #include "Node.h"
 #include "Task.h"
-#include "NodeMsg.h"
+#include "SchedMsg.h"
 #include "Utility.h"
 
 
 XBT_LOG_NEW_DEFAULT_CATEGORY(Application, "Messages within the application");
 
-Application::Application(Node* node, Job* job, int rank) : node(node), job(job), rank(rank) {}
+Application::Application(Node* node, Job* job, int rank, bool logTaskTimes) : node(node), job(job), rank(rank), logTaskTimes(logTaskTimes){}
 
 void Application::waitForAsyncActivities(const std::vector<simgrid::s4u::ActivityPtr>& asyncActivities) {
 	for (const auto& activity: asyncActivities) {
@@ -117,7 +117,10 @@ void Application::operator()() {
 				}
 				Utility::logIterationEnd(iterations, i, iterationStart);
 			}
-			node->logTaskTime(job, task, Utility::logTaskEnd(task, taskStart));
+			double taskEnd = Utility::logTaskEnd(task, taskStart);
+			if (logTaskTimes) {
+				node->logTaskTime(job, task, taskEnd);
+			}
 			taskQueue.pop_front();
 		}
 		--remainingIterations;
@@ -128,18 +131,26 @@ void Application::operator()() {
 		if (phaseQueue.empty()) {
 			waitForAsyncActivities(asyncActivities);
 			asyncActivities.clear();
-			s4u_Mailbox* mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-			mailboxNode->put(new NodeMsg(WORKLOAD_COMPLETED, job), 0);
+			barrier->wait();
+			if (rank == 0) {
+				s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
+				mailboxScheduler->put_init(new SchedMsg(WORKLOAD_PROCESSED, job), 0)->detach();
+			}
 		} else if (job->getType() == MALLEABLE && phase->hasSchedulingPoint() &&
 				   !(remainingIterations == 0 && !phase->hasFinalSchedulingPoint())) {
 			waitForAsyncActivities(asyncActivities);
 			asyncActivities.clear();
-			s4u_Mailbox* mailboxNode = s4u_Mailbox::by_name(node->getHostName());
-			mailboxNode->put(new NodeMsg(AT_SCHEDULING_POINT, job, completedPhases, remainingIterations),
-							 0);
+			barrier->wait();
+			if (rank == 0) {
+				job->advanceWorkload(completedPhases, remainingIterations);
+				s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
+				mailboxScheduler->put_init(new SchedMsg(SCHEDULING_POINT, job), 0)->detach();
+			}
 			break;
 		} else {
 			if (phase->hasBarrier()) {
+				waitForAsyncActivities(asyncActivities);
+				asyncActivities.clear();
 				barrier->wait();
 			}
 			if (remainingIterations == 0) {

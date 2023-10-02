@@ -17,98 +17,25 @@
 #include "Workload.h"
 #include "Task.h"
 #include "Application.h"
-#include "SchedMsg.h"
-#include "NodeMsg.h"
 #include "AsyncSleep.h"
 #include "Configuration.h"
 #include "PlatformManager.h"
 
 XBT_LOG_NEW_DEFAULT_CATEGORY(ComputeNode, "Messages within the Compute Node actor");
 
-void Node::handleWorkloadCompletion(Job* job) {
-	application.erase(job);
-	s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
-	mailboxScheduler->put(new SchedMsg(WORKLOAD_PROCESSED, job, this), 0);
-}
-
-void Node::handleJobAllocation(Job* job, int rank, const simgrid::s4u::BarrierPtr& jobBarrier) {
-	if (!allowOversubscription && !runningJobs.empty()) {
-		xbt_die("Node %d already allocated to job %d and cannot be assigned to job %d", id,
-				(*runningJobs.begin())->getId(), job->getId());
+Node::Node(int id, NodeType type, s4u_Host* host, s4u_Disk* nodeLocalBurstBuffer,
+		   std::vector<s4u_Host*> pfsHosts, double flopsPerByte, std::vector<std::unique_ptr<Gpu>> gpus,
+		   long gpuToGpuBandwidth, std::ofstream& nodeUtilizationOutput, std::ofstream& taskTimes) :
+		id(id), type(type), host(host), nodeLocalBurstBuffer(nodeLocalBurstBuffer), pfsHosts(std::move(pfsHosts)),
+		state(NODE_FREE), nodeUtilizationOutput(nodeUtilizationOutput), flopsPerByte(flopsPerByte),
+		gpus(std::move(gpus)), gpuToGpuBandwidth(gpuToGpuBandwidth), gpuLinkMutex(s4u_Mutex::create()),
+		allowOversubscription(Configuration::getBoolIfExists("allow_oversubscription")),
+		logTaskTimes(taskTimes.is_open()), taskTimes(taskTimes) {
+	for (const auto& gpu: Node::gpus) {
+		gpuPointers.push_back(gpu.get());
 	}
-	assignedRank[job] = rank;
-	barrier[job] = jobBarrier;
-	initializing[job] = true;
-	reconfiguring[job] = false;
-	expanding[job] = false;
-	runningJobs.insert(job);
-	if (!runningJobs.empty()) {
-		state = NODE_ALLOCATED;
-	}
-	PlatformManager::addModifiedComputeNode(this);
 	collectStatistics();
-	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
-										 Application(this, job, assignedRank[job]));
-}
-
-void Node::handleSchedulingPoint(Job* job, int completedPhases, int remainingIterations) {
-	application.erase(job);
-	s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
-	mailboxScheduler->put(new SchedMsg(SCHEDULING_POINT, job, this, completedPhases, remainingIterations),
-						  0);
-}
-
-void Node::continueJob(Job* job) {
-	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
-										 Application(this, job, assignedRank[job]));
-}
-
-void Node::expandJob(Job* job, int rank, int expandRank,
-					 const simgrid::s4u::BarrierPtr& jobBarrier,
-					 const simgrid::s4u::BarrierPtr& jobExpandBarrier) {
-	assignedRank[job] = rank;
-	assignedExpandRank[job] = expandRank;
-	barrier[job] = jobBarrier;
-	expandBarrier[job] = jobExpandBarrier;
-	initializing[job] = false;
-	reconfiguring[job] = true;
-	expanding[job] = true;
-	runningJobs.insert(job);
-	if (!runningJobs.empty()) {
-		state = NODE_ALLOCATED;
-	}
 	PlatformManager::addModifiedComputeNode(this);
-	collectStatistics();
-	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
-										 Application(this, job, assignedRank[job]));
-}
-
-void Node::completeJob(Job* job) {
-	runningJobs.erase(job);
-	if (runningJobs.empty()) {
-		state = NODE_FREE;
-	}
-	PlatformManager::addModifiedComputeNode(this);
-	collectStatistics();
-}
-
-void Node::reconfigureJob(Job* job, int rank, const simgrid::s4u::BarrierPtr& jobBarrier) {
-	assignedRank[job] = rank;
-	barrier[job] = jobBarrier;
-	reconfiguring[job] = true;
-	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
-										 Application(this, job, assignedRank[job]));
-}
-
-void Node::killJob(Job* job) {
-	application[job]->kill();
-	application.erase(job);
-	runningJobs.erase(job);
-	if (runningJobs.empty()) {
-		state = NODE_FREE;
-	}
-	PlatformManager::addModifiedComputeNode(this);
-	collectStatistics();
 }
 
 void Node::collectStatistics() {
@@ -147,16 +74,76 @@ void Node::collectStatistics() {
 						  << expectedJobIds << std::endl;
 }
 
-Node::Node(int id, NodeType type, s4u_Host* host, s4u_Disk* nodeLocalBurstBuffer,
-		   std::vector<s4u_Host*> pfsHosts, double flopsPerByte, std::vector<std::unique_ptr<Gpu>> gpus,
-		   long gpuToGpuBandwidth, std::ofstream& nodeUtilizationOutput, std::ofstream& taskTimes) :
-		id(id), type(type), host(host), nodeLocalBurstBuffer(nodeLocalBurstBuffer), pfsHosts(std::move(pfsHosts)),
-		state(NODE_FREE), nodeUtilizationOutput(nodeUtilizationOutput), flopsPerByte(flopsPerByte),
-		gpus(std::move(gpus)), gpuToGpuBandwidth(gpuToGpuBandwidth),
-		allowOversubscription(Configuration::getBoolIfExists("allow_oversubscription")), taskTimes(taskTimes) {
-	for (const auto& gpu: Node::gpus) {
-		gpuPointers.push_back(gpu.get());
+void Node::allocateJob(Job* job, int rank, const simgrid::s4u::BarrierPtr& jobBarrier) {
+	if (!allowOversubscription && !runningJobs.empty()) {
+		xbt_die("Node %d already allocated to job %d and cannot be assigned to job %d", id,
+				(*runningJobs.begin())->getId(), job->getId());
 	}
+	assignedRank[job] = rank;
+	barrier[job] = jobBarrier;
+	initializing[job] = true;
+	reconfiguring[job] = false;
+	expanding[job] = false;
+	runningJobs.insert(job);
+	if (!runningJobs.empty()) {
+		state = NODE_ALLOCATED;
+	}
+	PlatformManager::addModifiedComputeNode(this);
+	collectStatistics();
+	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
+										 Application(this, job, assignedRank[job], logTaskTimes)).get();
+}
+
+void Node::continueJob(Job* job) {
+	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
+										 Application(this, job, assignedRank[job], logTaskTimes)).get();
+}
+
+void Node::reconfigureJob(Job* job, int rank, const simgrid::s4u::BarrierPtr& jobBarrier) {
+	assignedRank[job] = rank;
+	barrier[job] = jobBarrier;
+	reconfiguring[job] = true;
+	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
+										 Application(this, job, assignedRank[job], logTaskTimes)).get();
+}
+
+void Node::expandJob(Job* job, int rank, int expandRank,
+					 const simgrid::s4u::BarrierPtr& jobBarrier,
+					 const simgrid::s4u::BarrierPtr& jobExpandBarrier) {
+	assignedRank[job] = rank;
+	assignedExpandRank[job] = expandRank;
+	barrier[job] = jobBarrier;
+	expandBarrier[job] = jobExpandBarrier;
+	initializing[job] = false;
+	reconfiguring[job] = true;
+	expanding[job] = true;
+	runningJobs.insert(job);
+	if (!runningJobs.empty()) {
+		state = NODE_ALLOCATED;
+	}
+	PlatformManager::addModifiedComputeNode(this);
+	collectStatistics();
+	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
+										 Application(this, job, assignedRank[job], logTaskTimes)).get();
+}
+
+void Node::completeJob(Job* job) {
+	runningJobs.erase(job);
+	if (runningJobs.empty()) {
+		state = NODE_FREE;
+	}
+	PlatformManager::addModifiedComputeNode(this);
+	collectStatistics();
+}
+
+void Node::killJob(Job* job) {
+	application[job]->kill();
+	runningJobs.erase(job);
+	if (runningJobs.empty()) {
+		state = NODE_FREE;
+	}
+	PlatformManager::addModifiedComputeNode(this);
+	collectStatistics();
 }
 
 int Node::getId() const {
@@ -311,47 +298,6 @@ void Node::removeExpectedJob(Job* job) {
 void Node::logTaskTime(const Job* job, const Task* task, double duration) const {
 	taskTimes << simgrid::s4u::Engine::get_clock() << "," << job->getId() << "," << getHostName() << ","
 			  << task->getName() << "," << duration << std::endl;
-}
-
-void Node::act() {
-
-	// initialization
-	collectStatistics();
-	s4u_Mailbox* mailbox = s4u_Mailbox::by_name(getHostName());
-	gpuLinkMutex = s4u_Mutex::create();
-	PlatformManager::addModifiedComputeNode(this);
-	// main loop
-	while (true) {
-		const auto& payload = mailbox->get_unique<NodeMsg>();
-		if (payload->getType() == NODE_ALLOCATE) {
-			XBT_INFO("Received job to allocate");
-			handleJobAllocation(payload->getJob(), payload->getRank(), payload->getBarrier());
-		} else if (payload->getType() == NODE_CONTINUE) {
-			XBT_INFO("Continuing job %d", payload->getJob()->getId());
-			continueJob(payload->getJob());
-		} else if (payload->getType() == NODE_RECONFIGURE) {
-			XBT_INFO("Reconfiguring job %d", payload->getJob()->getId());
-			reconfigureJob(payload->getJob(), payload->getRank(), payload->getBarrier());
-		} else if (payload->getType() == NODE_EXPAND) {
-			XBT_INFO("Expanding job %d", payload->getJob()->getId());
-			expandJob(payload->getJob(), payload->getRank(), payload->getExpandRank(), payload->getBarrier(),
-					  payload->getExpandBarrier());
-		} else if (payload->getType() == NODE_KILL) {
-			XBT_INFO("Killing job %d", payload->getJob()->getId());
-			killJob(payload->getJob());
-		} else if (payload->getType() == NODE_DEALLOCATE) {
-			XBT_INFO("Deallocate job %d", payload->getJob()->getId());
-			completeJob(payload->getJob());
-		} else if (payload->getType() == AT_SCHEDULING_POINT) {
-			handleSchedulingPoint(payload->getJob(), payload->getCompletedPhases(), payload->getRemainingIterations());
-		} else if (payload->getType() == WORKLOAD_COMPLETED) {
-			handleWorkloadCompletion(payload->getJob());
-		} else if (payload->getType() == NODE_FINALIZE) {
-			XBT_INFO("Received finalization");
-			break;
-		}
-	}
-
 }
 
 nlohmann::json Node::toJson() {

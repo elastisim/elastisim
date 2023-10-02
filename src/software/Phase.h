@@ -24,9 +24,9 @@ private:
 	std::deque<std::unique_ptr<Task>> tasks;
 	std::deque<const Task*> taskPointers;
 	int iterations;
-	bool schedulingPoint;
-	bool finalSchedulingPoint;
-	bool barrier;
+	const bool schedulingPoint;
+	const bool finalSchedulingPoint;
+	const bool barrier;
 
 public:
 	Phase(std::deque<std::unique_ptr<Task>> tasks, int iterations, bool schedulingPoint, bool finalSchedulingPoint,

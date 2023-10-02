@@ -12,15 +12,7 @@
 
 SchedMsg::SchedMsg(SchedEventType type) : type(type) {}
 
-SchedMsg::SchedMsg(SchedEventType type, Job* job, Node* node) :
-		type(type), job(job), node(node) {}
-
 SchedMsg::SchedMsg(SchedEventType type, Job* job) : type(type), job(job) {}
-
-SchedMsg::SchedMsg(SchedEventType type, Job* job, Node* node,
-				   int completedPhases, int remainingIterations) :
-		type(type), job(job), node(node), completedPhases(completedPhases),
-		remainingIterations(remainingIterations) {}
 
 SchedEventType SchedMsg::getType() const {
 	return type;
@@ -28,16 +20,4 @@ SchedEventType SchedMsg::getType() const {
 
 Job* SchedMsg::getJob() const {
 	return job;
-}
-
-Node* SchedMsg::getNode() const {
-	return node;
-}
-
-int SchedMsg::getCompletedPhases() const {
-	return completedPhases;
-}
-
-int SchedMsg::getRemainingIterations() const {
-	return remainingIterations;
 }

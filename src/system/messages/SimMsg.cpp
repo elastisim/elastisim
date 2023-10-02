@@ -18,8 +18,6 @@ SimMsg::SimMsg(SimEventType type, size_t numberOfJobs) : type(type), numberOfJob
 
 SimMsg::SimMsg(SimEventType type, std::unique_ptr<Job> job) : type(type), numberOfJobs(-1), job(std::move(job)) {}
 
-SimMsg::SimMsg(SimEventType type, int jobId) : type(type), jobId(jobId) {}
-
 SimEventType SimMsg::getType() const {
 	return type;
 }
@@ -30,8 +28,4 @@ size_t SimMsg::getNumberOfJobs() const {
 
 std::unique_ptr<Job> SimMsg::getJob() {
 	return std::move(job);
-}
-
-int SimMsg::getJobId() const {
-	return jobId;
 }

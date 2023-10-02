@@ -18,8 +18,8 @@ class DelayTask : public Task {
 
 protected:
 	std::vector<double> delays;
-	std::string delayModel;
-	VectorPattern delayPattern;
+	const std::string delayModel;
+	const VectorPattern delayPattern;
 
 public:
 	DelayTask(const std::string& name, const std::string& iterations, bool synchronized,

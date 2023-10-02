@@ -15,7 +15,7 @@
 class PeriodicInvoker {
 
 private:
-	double schedulingInterval;
+	const double schedulingInterval;
 
 public:
 	explicit PeriodicInvoker(double schedulingInterval);

@@ -22,9 +22,9 @@ enum GpuState {
 class Gpu {
 
 private:
-	int id;
+	const int id;
 	GpuState state;
-	long processingSpeed;
+	const long processingSpeed;
 	s4u_Host* host;
 	double utilization;
 	simgrid::s4u::MutexPtr mutex;

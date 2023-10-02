@@ -18,7 +18,7 @@ class CombinedCpuTask : public CombinedTask {
 
 private:
 	std::vector<double> payloads;
-	bool coupled;
+	const bool coupled;
 
 public:
 	CombinedCpuTask(const std::string& name, const std::string& iterations, bool synchronized,

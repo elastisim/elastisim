@@ -17,12 +17,12 @@
 class IoTask : public Task {
 
 private:
-	bool asynchronous;
+	const bool asynchronous;
 
 protected:
 	std::vector<double> ioSizes;
-	std::string ioModel;
-	VectorPattern ioPattern;
+	const std::string ioModel;
+	const VectorPattern ioPattern;
 
 public:
 	IoTask(const std::string& name, const std::string& iterations, bool synchronized, bool asynchronous,

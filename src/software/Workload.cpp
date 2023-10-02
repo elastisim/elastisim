@@ -81,8 +81,8 @@ void Workload::advance(int completedPhases, int remainingIterations) {
 		phases.pop_front();
 		phasePointers.pop_front();
 	}
-	Workload::completedPhases += (phases.front()->getIterations() - remainingIterations);
 	if (remainingIterations > 0) {
+		Workload::completedPhases += (phases.front()->getIterations() - remainingIterations);
 		phases.front()->setIterations(remainingIterations);
 	}
 }

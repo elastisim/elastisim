@@ -8,9 +8,10 @@
  *
  */
 
+#include "Configuration.h"
+
 #include <xbt/asserts.h>
 #include <fstream>
-#include "Configuration.h"
 
 nlohmann::json Configuration::configuration;
 bool Configuration::initialized = false;

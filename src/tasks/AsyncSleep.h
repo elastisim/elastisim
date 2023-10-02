@@ -18,7 +18,7 @@
 class AsyncSleep {
 
 private:
-	double duration;
+	const double duration;
 	std::function<void()> init;
 	std::function<void()> finalize;
 	s4u_Mailbox* callback;

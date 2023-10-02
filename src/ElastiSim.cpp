@@ -128,8 +128,6 @@ void ElastiSim::startSimulation(int argc, char* argv[]) {
 					std::make_unique<Node>(id++, COMPUTE_NODE, host, nullptr, pfsTargets, 0, std::move(gpus),
 										   gpuToGpuBandwidth, nodeUtilization, taskTimes));
 		}
-		Node* node = nodes.back().get();
-		s4u_Actor::create(hostname, host, [node] { node->act(); });
 
 	}
 
