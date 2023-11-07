@@ -24,12 +24,13 @@ private:
 	std::deque<std::unique_ptr<Task>> tasks;
 	std::deque<const Task*> taskPointers;
 	int iterations;
+	int initialIterations;
 	const bool schedulingPoint;
-	const bool finalSchedulingPoint;
+	const std::string evolvingModel;
 	const bool barrier;
 
 public:
-	Phase(std::deque<std::unique_ptr<Task>> tasks, int iterations, bool schedulingPoint, bool finalSchedulingPoint,
+	Phase(std::deque<std::unique_ptr<Task>> tasks, int iterations, bool schedulingPoint, std::string evolvingModel,
 		  bool barrier);
 
 	[[nodiscard]] const std::deque<const Task*>& getTasks() const;
@@ -38,13 +39,18 @@ public:
 
 	void setIterations(int iterations);
 
+	[[nodiscard]] int getInitialIterations() const;
+
 	[[nodiscard]] bool hasSchedulingPoint() const;
 
-	[[nodiscard]] bool hasFinalSchedulingPoint() const;
+	[[nodiscard]] const std::string& getEvolvingModel() const;
+
+	[[nodiscard]] bool hasEvolvingRequest() const;
 
 	[[nodiscard]] bool hasBarrier() const;
 
 	void scaleTo(int numNodes, int numGpusPerNode, const std::map<std::string, std::string>& runtimeArguments);
+
 };
 
 

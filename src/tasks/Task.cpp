@@ -13,8 +13,8 @@
 #include <utility>
 #include "Utility.h"
 
-Task::Task(std::string name, std::string iterations, bool synchronized) :
-		name(std::move(name)), iterationModel(std::move(iterations)), synchronized(synchronized) {}
+Task::Task(std::string name, std::string iterationModel, bool synchronized) :
+		name(std::move(name)), iterationModel(std::move(iterationModel)), synchronized(synchronized) {}
 
 Task::~Task() = default;
 

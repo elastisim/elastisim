@@ -45,6 +45,10 @@ JobType Utility::parseJobType(const std::string& jobType) {
 		return MOLDABLE;
 	} else if (toLower(jobType) == "malleable") {
 		return MALLEABLE;
+	} else if (toLower(jobType) == "evolving") {
+		return EVOLVING;
+	} else if (toLower(jobType) == "adaptive") {
+		return ADAPTIVE;
 	} else {
 		xbt_die("Unknown job type %s", jobType.c_str());
 	}
@@ -227,9 +231,9 @@ Utility::readPhase(nlohmann::json jsonPhase, const std::map<std::string, std::st
 	if (jsonPhase["scheduling_point"].is_boolean()) {
 		schedulingPoint = jsonPhase["scheduling_point"];
 	}
-	bool finalSchedulingPoint = true;
-	if (jsonPhase["final_scheduling_point"].is_boolean()) {
-		finalSchedulingPoint = jsonPhase["final_scheduling_point"];
+	std::string evolvingRequest;
+	if (jsonPhase["evolving_request"].is_string()) {
+		evolvingRequest = jsonPhase["evolving_request"];
 	}
 	bool barrier = true;
 	if (jsonPhase["barrier"].is_boolean()) {
@@ -239,12 +243,12 @@ Utility::readPhase(nlohmann::json jsonPhase, const std::map<std::string, std::st
 	for (auto& task: jsonPhase["tasks"]) {
 		tasks.push_back(readTask(task, arguments, numNodes, numGpusPerNode));
 	}
-	return std::make_unique<Phase>(std::move(tasks), iterations, schedulingPoint, finalSchedulingPoint, barrier);
+	return std::make_unique<Phase>(std::move(tasks), iterations, schedulingPoint, evolvingRequest, barrier);
 }
 
 std::unique_ptr<Phase>
-Utility::readOneTimePhase(nlohmann::json jsonPhase, const std::map<std::string, std::string>& arguments,
-						  bool mandatoryBarrier, int numNodes, int numGpusPerNode) {
+Utility::readOneTimePhase(nlohmann::json jsonPhase, const std::map<std::string, std::string>& arguments, int numNodes,
+						  int numGpusPerNode) {
 
 	if (jsonPhase.is_null()) {
 		return nullptr;
@@ -254,22 +258,13 @@ Utility::readOneTimePhase(nlohmann::json jsonPhase, const std::map<std::string, 
 		iterations = jsonPhase["iterations"];
 	}
 	bool schedulingPoint = false;
-	bool finalSchedulingPoint = false;
-
-	bool barrier;
-	if (mandatoryBarrier) {
-		barrier = true;
-	} else {
-		barrier = false;
-		if (jsonPhase["barrier"].is_boolean()) {
-			barrier = jsonPhase["barrier"];
-		}
-	}
+	std::string evolvingRequest;
+	bool barrier = false;
 	std::deque<std::unique_ptr<Task>> tasks;
 	for (auto& task: jsonPhase["tasks"]) {
 		tasks.push_back(readTask(task, arguments, numNodes, numGpusPerNode));
 	}
-	return std::make_unique<Phase>(std::move(tasks), iterations, schedulingPoint, finalSchedulingPoint, barrier);
+	return std::make_unique<Phase>(std::move(tasks), iterations, schedulingPoint, evolvingRequest, barrier);
 }
 
 std::unique_ptr<Workload>
@@ -277,11 +272,10 @@ Utility::readWorkload(const std::string& workloadFile, const std::map<std::strin
 					  int numNodes, int numGpusPerNode) {
 	std::ifstream stream(workloadFile);
 	nlohmann::json json = nlohmann::json::parse(stream);
-	std::unique_ptr<Phase> onInitialize = readOneTimePhase(json["on_init"], arguments, false, numNodes, numGpusPerNode);
-	std::unique_ptr<Phase> onReconfiguration = readOneTimePhase(json["on_reconfiguration"], arguments, true, numNodes,
+	std::unique_ptr<Phase> onInitialize = readOneTimePhase(json["on_init"], arguments, numNodes, numGpusPerNode);
+	std::unique_ptr<Phase> onReconfiguration = readOneTimePhase(json["on_reconfiguration"], arguments, numNodes,
 																numGpusPerNode);
-	std::unique_ptr<Phase> onExpansion = readOneTimePhase(json["on_expansion"], arguments, false, numNodes,
-														  numGpusPerNode);
+	std::unique_ptr<Phase> onExpansion = readOneTimePhase(json["on_expansion"], arguments, numNodes, numGpusPerNode);
 	std::deque<std::unique_ptr<Phase>> phases;
 	for (auto& phase: json["phases"]) {
 		phases.push_back(readPhase(phase, arguments, numNodes, numGpusPerNode));
@@ -596,6 +590,34 @@ double Utility::evaluateFormula(const std::string& model, int numNodes, int numG
 	exprtk::parser<double> parser;
 	exprtk::expression<double> expression;
 	std::string substitutedModel = std::regex_replace(model, std::regex("num_nodes"), std::to_string(numNodes));
+	substitutedModel = std::regex_replace(substitutedModel, std::regex("num_gpus_per_node"),
+										  std::to_string(numGpusPerNode));
+	substitutedModel = std::regex_replace(substitutedModel, std::regex("num_gpus"),
+										  std::to_string(numNodes * numGpusPerNode));
+
+	for (const auto& [key, value]: runtimeArguments) {
+		substitutedModel = std::regex_replace(substitutedModel, std::regex(key), value);
+	}
+
+	if (parser.compile(substitutedModel, expression)) {
+		return expression.value();
+	} else {
+		xbt_die("Performance model %s not valid", model.c_str());
+	}
+}
+
+double Utility::evaluateFormula(const std::string& model, int numNodes, int numGpusPerNode,
+								const std::map<std::string, std::string>& runtimeArguments,
+								const std::map<std::string, std::string>& additionalArguments) {
+	exprtk::parser<double> parser;
+	exprtk::expression<double> expression;
+	std::string substitutedModel = model;
+
+	for (const auto& [key, value]: additionalArguments) {
+		substitutedModel = std::regex_replace(substitutedModel, std::regex(key), value);
+	}
+
+	substitutedModel = std::regex_replace(substitutedModel, std::regex("num_nodes"), std::to_string(numNodes));
 	substitutedModel = std::regex_replace(substitutedModel, std::regex("num_gpus_per_node"),
 										  std::to_string(numGpusPerNode));
 	substitutedModel = std::regex_replace(substitutedModel, std::regex("num_gpus"),

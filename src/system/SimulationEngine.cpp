@@ -52,9 +52,10 @@ void SimulationEngine::operator()() {
 			indicators::option::PostfixText{"0/" + std::to_string(expectedJobs) + " jobs processed"}
 	};
 
-	const bool infoLevel = XBT_LOG_ISENABLED(root, xbt_log_priority_info);
+	const bool showProgressBar = (!Configuration::exists("show_progress_bar") ||
+			(bool) Configuration::get("show_progress_bar")) && !XBT_LOG_ISENABLED(root, xbt_log_priority_info);
 
-	if (!infoLevel) {
+	if (showProgressBar) {
 		indicators::show_console_cursor(false);
 		progressBar.set_progress(0);
 	}
@@ -71,7 +72,7 @@ void SimulationEngine::operator()() {
 		} else if (payload->getType() == JOB_COMPLETED) {
 			XBT_INFO("Registered job completion");
 			expectedJobs--;
-			if (!infoLevel) {
+			if (showProgressBar) {
 				progressBar.set_option(indicators::option::PostfixText{
 						std::to_string(++processedJobs) + "/" + std::to_string(numberOfJobs) + " jobs processed"});
 				progressBar.tick();
@@ -79,7 +80,7 @@ void SimulationEngine::operator()() {
 		} else if (payload->getType() == JOB_KILLED) {
 			XBT_INFO("Registered job kill");
 			expectedJobs--;
-			if (!infoLevel) {
+			if (showProgressBar) {
 				progressBar.set_option(indicators::option::PostfixText{
 						std::to_string(++processedJobs) + "/" + std::to_string(numberOfJobs) + " jobs processed"});
 				progressBar.tick();
@@ -87,7 +88,7 @@ void SimulationEngine::operator()() {
 		}
 	}
 
-	if (!infoLevel) {
+	if (showProgressBar) {
 		progressBar.mark_as_completed();
 		indicators::show_console_cursor(true);
 	}
@@ -108,6 +109,12 @@ void SimulationEngine::operator()() {
 				break;
 			case MALLEABLE:
 				jobStatistics << "malleable" << ",";
+				break;
+			case EVOLVING:
+				jobStatistics << "evolving" << ",";
+				break;
+			case ADAPTIVE:
+				jobStatistics << "adaptive" << ",";
 				break;
 		}
 		jobStatistics << job->getSubmitTime() << ",";

@@ -48,7 +48,7 @@ private:
 	const bool synchronized;
 
 public:
-	Task(std::string name, std::string iterations, bool synchronized);
+	Task(std::string name, std::string iterationModel, bool synchronized);
 
 	virtual ~Task();
 

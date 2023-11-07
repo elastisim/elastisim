@@ -56,8 +56,8 @@ private:
 			  int numGpusPerNode);
 
 	[[nodiscard]] static std::unique_ptr<Phase>
-	readOneTimePhase(nlohmann::json jsonPhase, const std::map<std::string, std::string>& arguments,
-					 bool mandatoryBarrier, int numNodes, int numGpusPerNode);
+	readOneTimePhase(nlohmann::json jsonPhase, const std::map<std::string, std::string>& arguments, int numNodes,
+					 int numGpusPerNode);
 
 	[[nodiscard]] static std::unique_ptr<Workload>
 	readWorkload(const std::string& workloadFile, const std::map<std::string, std::string>& arguments,
@@ -93,6 +93,10 @@ public:
 
 	[[nodiscard]] static double evaluateFormula(const std::string& model, int numNodes, int numGpusPerNode,
 												const std::map<std::string, std::string>& runtimeArguments);
+
+	[[nodiscard]] static double evaluateFormula(const std::string& model, int numNodes, int numGpusPerNode,
+												const std::map<std::string, std::string>& runtimeArguments,
+												const std::map<std::string, std::string>& additionalArguments);
 
 	[[nodiscard]] static std::vector<double> createVector(double size, VectorPattern pattern, int numNodes);
 

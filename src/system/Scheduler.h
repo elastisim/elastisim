@@ -25,7 +25,8 @@ enum InvocationType {
 	INVOKE_JOB_SUBMIT = 1,
 	INVOKE_JOB_COMPLETED = 2,
 	INVOKE_JOB_KILLED = 3,
-	INVOKE_SCHEDULING_POINT = 4
+	INVOKE_SCHEDULING_POINT = 4,
+	INVOKE_EVOLVING_REQUEST = 5
 };
 
 class Scheduler {
@@ -45,7 +46,7 @@ private:
 	std::map<Job*, std::set<Node*>> assignedNodes;
 	int currentJobId;
 
-	void schedule(InvocationType invocationType, Job* requestingJob = nullptr);
+	void schedule(InvocationType invocationType, Job* requestingJob = nullptr, int numberOfNodes = -1);
 
 	void handleJobSubmit(Job* job);
 
@@ -58,6 +59,8 @@ private:
 	void handleReconfiguration(Job* job);
 
 	void handleSchedulingPoint(Job* job);
+
+	void handleEvolvingRequest(Job* job, int numberOfnodes);
 
 	void checkConfigurationValidity() const;
 

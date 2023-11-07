@@ -36,12 +36,13 @@ Scheduler::Scheduler(s4u_Host* masterHost) :
 	checkConfigurationValidity();
 }
 
-void Scheduler::schedule(InvocationType invocationType, Job* requestingJob) {
+void Scheduler::schedule(InvocationType invocationType, Job* requestingJob, int numberOfNodes) {
 	double clock = simgrid::s4u::Engine::get_clock();
 	if (minSchedulingInterval == 0 || clock - lastInvocation >= minSchedulingInterval - EPSILON) {
-		std::vector<Job*> scheduledJobs = SchedulingInterface::schedule(invocationType, jobQueue, modifiedJobs, requestingJob);
+		std::vector<Job*> scheduledJobs = SchedulingInterface::schedule(invocationType, jobQueue, modifiedJobs,
+																		requestingJob, numberOfNodes);
 		modifiedJobs.clear();
-		if (invocationType == INVOKE_SCHEDULING_POINT) {
+		if (invocationType == INVOKE_SCHEDULING_POINT || invocationType == INVOKE_EVOLVING_REQUEST) {
 			if (requestingJob->getState() == PENDING_KILL) {
 				forwardJobKill(requestingJob, false);
 			} else if (requestingJob->getState() == PENDING_RECONFIGURATION) {
@@ -184,6 +185,11 @@ void Scheduler::handleSchedulingPoint(Job* job) {
 	}
 }
 
+void Scheduler::handleEvolvingRequest(Job* job, int numberOfnodes) {
+	modifiedJobs.push_back(job);
+	schedule(INVOKE_EVOLVING_REQUEST, job, numberOfnodes);
+}
+
 void Scheduler::checkConfigurationValidity() const {
 	if (schedulingInterval < 0) {
 		xbt_die("Scheduling interval can not be less than 0");
@@ -219,6 +225,9 @@ void Scheduler::operator()() {
 		} else if (payload->getType() == SCHEDULING_POINT) {
 			XBT_INFO("Received scheduling point from job %d", payload->getJob()->getId());
 			handleSchedulingPoint(payload->getJob());
+		} else if (payload->getType() == EVOLVING_REQUEST) {
+			XBT_INFO("Received evolving request from job %d", payload->getJob()->getId());
+			handleEvolvingRequest(payload->getJob(), payload->getNumberOfNodes());
 		} else if (payload->getType() == WALLTIME_EXCEEDED) {
 			XBT_INFO("Received exceeded walltime");
 			forwardJobKill(payload->getJob(), true);

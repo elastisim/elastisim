@@ -10,9 +10,12 @@
 
 #include "SchedMsg.h"
 
-SchedMsg::SchedMsg(SchedEventType type) : type(type) {}
+SchedMsg::SchedMsg(SchedEventType type) : type(type), numberOfNodes(-1) {}
 
-SchedMsg::SchedMsg(SchedEventType type, Job* job) : type(type), job(job) {}
+SchedMsg::SchedMsg(SchedEventType type, Job* job) : type(type), job(job), numberOfNodes(-1) {}
+
+SchedMsg::SchedMsg(SchedEventType type, Job* job, int numberOfNodes) :
+		type(type), job(job), numberOfNodes(numberOfNodes) {}
 
 SchedEventType SchedMsg::getType() const {
 	return type;
@@ -20,4 +23,8 @@ SchedEventType SchedMsg::getType() const {
 
 Job* SchedMsg::getJob() const {
 	return job;
+}
+
+int SchedMsg::getNumberOfNodes() const {
+	return numberOfNodes;
 }

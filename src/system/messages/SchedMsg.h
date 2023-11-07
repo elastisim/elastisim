@@ -21,6 +21,7 @@ enum SchedEventType {
 	JOB_SUBMIT,
 	WALLTIME_EXCEEDED,
 	SCHEDULING_POINT,
+	EVOLVING_REQUEST,
 	WORKLOAD_PROCESSED,
 	SCHEDULER_FINALIZE
 };
@@ -30,6 +31,7 @@ class SchedMsg {
 private:
 	const SchedEventType type;
 	Job* job;
+	const int numberOfNodes;
 
 public:
 
@@ -37,9 +39,13 @@ public:
 
 	SchedMsg(SchedEventType type, Job* job);
 
+	SchedMsg(SchedEventType type, Job* job, int numberOfNodes);
+
 	[[nodiscard]] SchedEventType getType() const;
 
 	[[nodiscard]] Job* getJob() const;
+
+	[[nodiscard]] int getNumberOfNodes() const;
 
 };
 

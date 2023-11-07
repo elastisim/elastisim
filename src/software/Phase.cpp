@@ -9,12 +9,14 @@
  */
 
 #include "Phase.h"
+
+#include <utility>
 #include "Task.h"
 
-Phase::Phase(std::deque<std::unique_ptr<Task>> tasks, int iterations, bool schedulingPoint, bool finalSchedulingPoint,
-			 bool barrier) : tasks(std::move(tasks)), iterations(iterations),
-							 schedulingPoint(schedulingPoint), finalSchedulingPoint(finalSchedulingPoint),
-							 barrier(barrier) {
+Phase::Phase(std::deque<std::unique_ptr<Task>> tasks, int iterations, bool schedulingPoint, std::string evolvingModel,
+			 bool barrier) :
+		tasks(std::move(tasks)), iterations(iterations), initialIterations(iterations),
+		schedulingPoint(schedulingPoint), evolvingModel(std::move(evolvingModel)), barrier(barrier) {
 	for (const auto& task: Phase::tasks) {
 		taskPointers.push_back(task.get());
 	}
@@ -32,12 +34,20 @@ void Phase::setIterations(int iterations) {
 	Phase::iterations = iterations;
 }
 
+int Phase::getInitialIterations() const {
+	return initialIterations;
+}
+
 bool Phase::hasSchedulingPoint() const {
 	return schedulingPoint;
 }
 
-bool Phase::hasFinalSchedulingPoint() const {
-	return finalSchedulingPoint;
+const std::string& Phase::getEvolvingModel() const {
+	return evolvingModel;
+}
+
+bool Phase::hasEvolvingRequest() const {
+	return !evolvingModel.empty();
 }
 
 bool Phase::hasBarrier() const {

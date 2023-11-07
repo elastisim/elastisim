@@ -31,9 +31,9 @@ nlohmann::json Configuration::get(const std::string& key) {
 }
 
 bool Configuration::exists(const std::string& key) {
-	return !configuration[key].is_null();
+	return configuration.contains(key);
 }
 
 bool Configuration::getBoolIfExists(const std::string& key) {
-	return configuration[key].is_boolean() && configuration[key];
+	return exists(key) && configuration[key].is_boolean() && configuration[key];
 }

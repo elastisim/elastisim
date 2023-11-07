@@ -33,9 +33,9 @@ private:
 
 	static void waitForAsyncActivities(const std::vector<simgrid::s4u::ActivityPtr>& asyncActivities);
 
-	static void executeOneTimePhase(const Phase* phase, const Node* node,
-									const Job* job, const std::vector<Node*>& nodes,
-									int rank, const simgrid::s4u::BarrierPtr& barrier);
+	void
+	executeOneTimePhase(const Phase* phase, const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
+						const simgrid::s4u::BarrierPtr& barrier);
 
 public:
 	Application(Node* node, Job* job, int rank, bool logTaskTimes);

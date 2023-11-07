@@ -23,7 +23,9 @@ class Workload;
 enum JobType {
 	RIGID = 0,
 	MOLDABLE = 1,
-	MALLEABLE = 2
+	MALLEABLE = 2,
+	EVOLVING = 3,
+	ADAPTIVE = 4
 };
 
 enum JobState {
@@ -64,8 +66,11 @@ private:
 	std::map<std::string, std::string> arguments;
 	std::map<std::string, std::string> attributes;
 	std::map<std::string, std::string> runtimeArguments;
+	std::map<std::string, std::string> additionalArguments;
+	simgrid::s4u::MutexPtr runtimeArgumentsMutex;
 	int assignedNumGpusPerNode;
 	int executingNumGpusPerNode;
+	const bool clipEvolvingRequests;
 
 public:
 	Job(int walltime, int numNodes, int numGpusPerNode, double submitTime,
@@ -108,6 +113,8 @@ public:
 
 	void setExpandNodes(std::vector<Node*> expandingNodes);
 
+	[[nodiscard]] int calculateEvolvingRequest(const std::string& evolvingModel, int phaseIteration);
+
 	void assignNode(Node* node);
 
 	void assignNumGpusPerNode(int numGpusPerNode);
@@ -133,6 +140,7 @@ public:
 	void checkConfigurationValidity() const;
 
 	[[nodiscard]] nlohmann::json toJson() const;
+
 };
 
 

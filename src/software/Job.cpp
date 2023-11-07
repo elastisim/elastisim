@@ -16,6 +16,8 @@
 #include "Phase.h"
 #include "Node.h"
 #include "Task.h"
+#include "Utility.h"
+#include "Configuration.h"
 
 Job::Job(int walltime, int numNodes, int numGpusPerNode, double submitTime,
 		 std::map<std::string, std::string> arguments, std::map<std::string, std::string> attributes,
@@ -24,7 +26,8 @@ Job::Job(int walltime, int numNodes, int numGpusPerNode, double submitTime,
 		numGpusPerNode(numGpusPerNode), numNodesMin(-1), numNodesMax(-1), numGpusPerNodeMin(-1), numGpusPerNodeMax(-1),
 		submitTime(submitTime), startTime(-1), endTime(-1), waitTime(-1), makespan(-1), turnaroundTime(-1),
 		workload(std::move(workload)), arguments(std::move(arguments)), attributes(std::move(attributes)),
-		assignedNumGpusPerNode(0), executingNumGpusPerNode(0) {
+		runtimeArgumentsMutex(s4u_Mutex::create()), assignedNumGpusPerNode(0), executingNumGpusPerNode(0),
+		clipEvolvingRequests(false) {
 	checkSpecification();
 }
 
@@ -33,11 +36,15 @@ Job::Job(int walltime, JobType type, int numNodesMin, int numNodesMax, int numGp
 		 std::unique_ptr<Workload> workload) :
 		id(-1), type(type), state(PENDING_SUBMISSION), walltime(walltime),
 		numNodes(-1), numGpusPerNode(-1), numNodesMin(numNodesMin), numNodesMax(numNodesMax),
-		numGpusPerNodeMin(numGpusPerNodeMin),
-		numGpusPerNodeMax(numGpusPerNodeMax), submitTime(submitTime), startTime(-1), endTime(-1), waitTime(-1),
-		makespan(-1), turnaroundTime(-1), workload(std::move(workload)), arguments(std::move(arguments)),
-		attributes(std::move(attributes)), assignedNumGpusPerNode(0), executingNumGpusPerNode(0) {
+		numGpusPerNodeMin(numGpusPerNodeMin), numGpusPerNodeMax(numGpusPerNodeMax), submitTime(submitTime),
+		startTime(-1), endTime(-1), waitTime(-1), makespan(-1), turnaroundTime(-1), workload(std::move(workload)),
+		arguments(std::move(arguments)), attributes(std::move(attributes)), runtimeArgumentsMutex(s4u_Mutex::create()),
+		assignedNumGpusPerNode(0), executingNumGpusPerNode(0),
+		clipEvolvingRequests(!Configuration::exists("clip_evolving_requests") ||
+							 (bool) Configuration::get("clip_evolving_requests")) {
 	checkSpecification();
+	additionalArguments["num_nodes_min"] = std::to_string(numNodesMin);
+	additionalArguments["num_nodes_max"] = std::to_string(numNodesMax);
 }
 
 int Job::getId() const {
@@ -140,10 +147,32 @@ void Job::setExpandNodes(const std::vector<Node*> expandingNodes) {
 	workload->scaleExpandPhaseTo(expandingNodes.size(), executingNumGpusPerNode, runtimeArguments);
 }
 
+int Job::calculateEvolvingRequest(const std::string& evolvingModel, int phaseIteration) {
+	additionalArguments["phase_iteration"] = std::to_string(phaseIteration);
+	int numberOfNodes = (int) Utility::evaluateFormula(evolvingModel, getNumberOfExecutingNodes(),
+													   executingNumGpusPerNode, runtimeArguments, additionalArguments);
+	if (clipEvolvingRequests) {
+		numberOfNodes = std::max(std::min(numberOfNodes, numNodesMax), numNodesMin);
+	} else {
+		if (numberOfNodes < numNodesMin) {
+			xbt_die("Evolving requests can not be smaller than the minimum number of requested nodes "
+					"(request model ⌊%s⌋ results in %d, minimum number of nodes is %d)",
+					evolvingModel.c_str(), numberOfNodes, numNodesMin);
+		}
+		if (numberOfNodes > numNodesMax) {
+			xbt_die("Evolving requests can not be greater than the maximum number of requested nodes "
+					"(request model ⌊%s⌋ results in %d, maximum number of nodes is %d)",
+					evolvingModel.c_str(), numberOfNodes, numNodesMax);
+		}
+	}
+
+	return numberOfNodes;
+}
+
 void Job::assignNode(Node* node) {
 	if (state == PENDING) {
 		assignedNodes.push_back(node);
-	} else if (type == MALLEABLE) {
+	} else if (type == MALLEABLE || type == EVOLVING || type == ADAPTIVE) {
 		assignedNodes.push_back(node);
 		node->expectJob(this);
 	} else {
@@ -193,11 +222,15 @@ void Job::clearAssignedNodes() {
 }
 
 void Job::updateRuntimeArguments(const std::string& key, const std::string& value) {
+	runtimeArgumentsMutex->lock();
 	runtimeArguments[key] = value;
+	runtimeArgumentsMutex->unlock();
 }
 
 void Job::clearRuntimeArguments() {
+	runtimeArgumentsMutex->lock();
 	runtimeArguments.clear();
+	runtimeArgumentsMutex->unlock();
 }
 
 void Job::checkSpecification() const {

@@ -17,11 +17,13 @@
 #include "Task.h"
 #include "SchedMsg.h"
 #include "Utility.h"
+#include "Configuration.h"
 
 
 XBT_LOG_NEW_DEFAULT_CATEGORY(Application, "Messages within the application");
 
-Application::Application(Node* node, Job* job, int rank, bool logTaskTimes) : node(node), job(job), rank(rank), logTaskTimes(logTaskTimes){}
+Application::Application(Node* node, Job* job, int rank, bool logTaskTimes) :
+node(node), job(job), rank(rank), logTaskTimes(logTaskTimes){}
 
 void Application::waitForAsyncActivities(const std::vector<simgrid::s4u::ActivityPtr>& asyncActivities) {
 	for (const auto& activity: asyncActivities) {
@@ -29,9 +31,9 @@ void Application::waitForAsyncActivities(const std::vector<simgrid::s4u::Activit
 	}
 }
 
-void Application::executeOneTimePhase(const Phase* phase, const Node* node,
-									  const Job* job, const std::vector<Node*>& nodes,
-									  int rank, const simgrid::s4u::BarrierPtr& barrier) {
+void
+Application::executeOneTimePhase(const Phase* phase, const Node* node, const Job* job, const std::vector<Node*>& nodes,
+								 int rank, const simgrid::s4u::BarrierPtr& barrier) {
 
 	if (phase == nullptr) {
 		return;
@@ -54,10 +56,10 @@ void Application::executeOneTimePhase(const Phase* phase, const Node* node,
 				}
 				Utility::logIterationEnd(iterations, j, iterationStart);
 			}
-			node->logTaskTime(job, task, Utility::logTaskEnd(task, taskStart));
-		}
-		if (phase->hasBarrier()) {
-			barrier->wait();
+			double taskEnd = Utility::logTaskEnd(task, taskStart);
+			if (logTaskTimes) {
+				node->logTaskTime(job, task, taskEnd);
+			}
 		}
 	}
 	for (const auto& activity: asyncActivities) {
@@ -79,6 +81,8 @@ void Application::operator()() {
 		node->markReconfigured(job);
 	}
 
+	const simgrid::s4u::BarrierPtr& barrier = node->getBarrier(job);
+	barrier->wait();
 	if (rank == 0) {
 		job->setState(RUNNING);
 	}
@@ -94,10 +98,46 @@ void Application::operator()() {
 	int remainingIterations = phase->getIterations();
 	int completedPhases = 0;
 
-	const simgrid::s4u::BarrierPtr& barrier = node->getBarrier(job);
 	std::vector<simgrid::s4u::ActivityPtr> asyncActivities;
 
+	bool initialPhase = true;
 	while (remainingIterations > 0) {
+
+		if (!initialPhase) {
+			if ((job->getType() == EVOLVING || job->getType() == ADAPTIVE) && phase->hasEvolvingRequest()) {
+				const int numberOfNodes = job->calculateEvolvingRequest(phase->getEvolvingModel(),
+																		phase->getInitialIterations() -
+																		remainingIterations);
+				if (numberOfNodes != job->getNumberOfExecutingNodes()) {
+					waitForAsyncActivities(asyncActivities);
+					asyncActivities.clear();
+					barrier->wait();
+					if (rank == 0) {
+						job->advanceWorkload(completedPhases, remainingIterations);
+						s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
+						mailboxScheduler->put_init(new SchedMsg(EVOLVING_REQUEST, job, numberOfNodes), 0)->detach();
+					}
+					break;
+				}
+			} else if ((job->getType() == MALLEABLE || job->getType() == ADAPTIVE) && phase->hasSchedulingPoint()) {
+				waitForAsyncActivities(asyncActivities);
+				asyncActivities.clear();
+				barrier->wait();
+				if (rank == 0) {
+					job->advanceWorkload(completedPhases, remainingIterations);
+					s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
+					mailboxScheduler->put_init(new SchedMsg(SCHEDULING_POINT, job), 0)->detach();
+				}
+				break;
+			}
+		}
+
+		if (phase->hasBarrier()) {
+			waitForAsyncActivities(asyncActivities);
+			asyncActivities.clear();
+			barrier->wait();
+		}
+
 		std::deque<const Task*> taskQueue = phase->getTasks();
 		while (!taskQueue.empty()) {
 			const Task* task = taskQueue.front();
@@ -123,37 +163,21 @@ void Application::operator()() {
 			}
 			taskQueue.pop_front();
 		}
+
 		--remainingIterations;
+		initialPhase = false;
 		if (remainingIterations == 0) {
 			phaseQueue.pop_front();
-			++completedPhases;
-		}
-		if (phaseQueue.empty()) {
-			waitForAsyncActivities(asyncActivities);
-			asyncActivities.clear();
-			barrier->wait();
-			if (rank == 0) {
-				s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
-				mailboxScheduler->put_init(new SchedMsg(WORKLOAD_PROCESSED, job), 0)->detach();
-			}
-		} else if (job->getType() == MALLEABLE && phase->hasSchedulingPoint() &&
-				   !(remainingIterations == 0 && !phase->hasFinalSchedulingPoint())) {
-			waitForAsyncActivities(asyncActivities);
-			asyncActivities.clear();
-			barrier->wait();
-			if (rank == 0) {
-				job->advanceWorkload(completedPhases, remainingIterations);
-				s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
-				mailboxScheduler->put_init(new SchedMsg(SCHEDULING_POINT, job), 0)->detach();
-			}
-			break;
-		} else {
-			if (phase->hasBarrier()) {
+			if (phaseQueue.empty()) {
 				waitForAsyncActivities(asyncActivities);
 				asyncActivities.clear();
 				barrier->wait();
-			}
-			if (remainingIterations == 0) {
+				if (rank == 0) {
+					s4u_Mailbox* mailboxScheduler = s4u_Mailbox::by_name("Scheduler");
+					mailboxScheduler->put_init(new SchedMsg(WORKLOAD_PROCESSED, job), 0)->detach();
+				}
+			} else {
+				++completedPhases;
 				phase = phaseQueue.front();
 				remainingIterations = phase->getIterations();
 			}

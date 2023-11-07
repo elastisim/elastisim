@@ -15,6 +15,7 @@
 #include <simgrid/s4u.hpp>
 #include <fstream>
 #include <json.hpp>
+#include <stack>
 #include "Gpu.h"
 
 class Task;

@@ -26,6 +26,9 @@ public:
 	void execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
 				 simgrid::s4u::BarrierPtr barrier) const override;
 
+	std::vector<simgrid::s4u::ActivityPtr>
+	executeAsync(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank) const override;
+
 };
 
 

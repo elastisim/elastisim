@@ -31,9 +31,11 @@ class SchedulingInterface {
 private:
 	static zmq::context_t context;
 	static zmq::socket_t socket;
+	static const bool forwardIoInformation;
 
 	static void
-	invokeScheduling(InvocationType invocationType, const std::vector<Job*>& modifiedJobs, const Job* requestingJob);
+	invokeScheduling(InvocationType invocationType, const std::vector<Job*>& modifiedJobs, const Job* requestingJob,
+					 int numberOfNodes);
 
 public:
 	static void init();
@@ -43,7 +45,7 @@ public:
 
 	[[nodiscard]] static std::vector<Job*>
 	schedule(InvocationType invocationType, const std::vector<Job*>& jobQueue, const std::vector<Job*>& modifiedJobs,
-			 const Job* requestingJob);
+			 const Job* requestingJob, int numberOfNodes);
 
 	static void finalize();
 

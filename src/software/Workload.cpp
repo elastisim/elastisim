@@ -88,5 +88,6 @@ void Workload::advance(int completedPhases, int remainingIterations) {
 }
 
 void Workload::complete() {
+	phases.clear();
 	completedPhases = totalPhaseCount;
 }
