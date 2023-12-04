@@ -26,7 +26,8 @@ enum InvocationType {
 	INVOKE_JOB_COMPLETED = 2,
 	INVOKE_JOB_KILLED = 3,
 	INVOKE_SCHEDULING_POINT = 4,
-	INVOKE_EVOLVING_REQUEST = 5
+	INVOKE_EVOLVING_REQUEST = 5,
+	INVOKE_RECONFIGURATION = 6
 };
 
 class Scheduler {
@@ -39,6 +40,7 @@ private:
 	const bool scheduleOnJobSubmit;
 	const bool scheduleOnJobFinalize;
 	const bool scheduleOnSchedulingPoint;
+	const bool scheduleOnReconfiguration;
 	const double gracePeriod;
 	std::vector<Job*> jobQueue;
 	std::vector<Job*> modifiedJobs;

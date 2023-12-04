@@ -31,6 +31,7 @@ Scheduler::Scheduler(s4u_Host* masterHost) :
 		scheduleOnJobSubmit(Configuration::getBoolIfExists("schedule_on_job_submit")),
 		scheduleOnJobFinalize(Configuration::getBoolIfExists("schedule_on_job_finalize")),
 		scheduleOnSchedulingPoint(Configuration::getBoolIfExists("schedule_on_scheduling_point")),
+		scheduleOnReconfiguration(Configuration::getBoolIfExists("schedule_on_reconfiguration")),
 		gracePeriod(Configuration::exists("job_kill_grace_period") ?
 					(double) Configuration::get("job_kill_grace_period") : 0), currentJobId(0) {
 	checkConfigurationValidity();
@@ -175,6 +176,9 @@ void Scheduler::handleSchedulingPoint(Job* job) {
 	} else {
 		if (job->getState() == PENDING_RECONFIGURATION) {
 			handleReconfiguration(job);
+			if (scheduleOnReconfiguration) {
+				schedule(INVOKE_RECONFIGURATION, job);
+			}
 		} else {
 			// continue without reconfiguration
 			for (const auto& node: job->getExecutingNodes()) {
