@@ -128,6 +128,7 @@ void Node::expandJob(Job* job, int rank, int expandRank,
 }
 
 void Node::completeJob(Job* job) {
+	application.erase(job);
 	runningJobs.erase(job);
 	if (runningJobs.empty()) {
 		state = NODE_FREE;
@@ -138,6 +139,7 @@ void Node::completeJob(Job* job) {
 
 void Node::killJob(Job* job) {
 	application[job]->kill();
+	application.erase(job);
 	runningJobs.erase(job);
 	if (runningJobs.empty()) {
 		state = NODE_FREE;
