@@ -18,6 +18,7 @@
 #include "Task.h"
 #include "Utility.h"
 #include "Configuration.h"
+#include "PlatformManager.h"
 
 Job::Job(int walltime, int numNodes, int numGpusPerNode, double submitTime,
 		 std::map<std::string, std::string> arguments, std::map<std::string, std::string> attributes,
@@ -99,6 +100,7 @@ void Job::setState(JobState newState) {
 		}
 	}
 	state = newState;
+	PlatformManager::addModifiedJob(this);
 }
 
 double Job::getWalltime() const {
@@ -204,12 +206,15 @@ void Job::updateState() {
 	if (assignedNodes != executingNodes) {
 		if (state == PENDING) {
 			state = PENDING_ALLOCATION;
+			PlatformManager::addModifiedJob(this);
 		} else if (state == RUNNING) {
 			state = PENDING_RECONFIGURATION;
+			PlatformManager::addModifiedJob(this);
 		}
 	} else {
 		if (state == PENDING_RECONFIGURATION) {
 			state = RUNNING;
+			PlatformManager::addModifiedJob(this);
 		}
 	}
 }

@@ -22,7 +22,7 @@ const bool SchedulingInterface::forwardIoInformation = Configuration::getBoolIfE
 
 void SchedulingInterface::invokeScheduling(InvocationType invocationType, const std::vector<Job*>& modifiedJobs,
 										   const Job* requestingJob, int numberOfNodes) {
-	std::vector<Node*> nodes = PlatformManager::getModifiedComputeNodes();
+	const std::vector<Node*>& nodes = PlatformManager::getModifiedComputeNodes();
 	nlohmann::json message;
 	message["code"] = ZMQ_INVOKE_SCHEDULING;
 	message["time"] = simgrid::s4u::Engine::get_clock();
@@ -47,6 +47,7 @@ void SchedulingInterface::invokeScheduling(InvocationType invocationType, const 
 		message["pfs_read_utilization"] = PlatformManager::getPfsReadUtilization();
 		message["pfs_write_utilization"] = PlatformManager::getPfsWriteUtilization();
 	}
+	PlatformManager::clearModifiedJobs();
 	PlatformManager::clearModifiedComputeNodes();
 	socket.send(zmq::buffer(message.dump()));
 }

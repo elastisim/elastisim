@@ -18,12 +18,16 @@
 
 class Node;
 
+class Job;
+
 class PlatformManager {
 
 private:
 	static std::vector<std::unique_ptr<Node>> nodes;
 	static std::vector<Node*> computeNodes;
 	static std::vector<Node*> modifiedComputeNodes;
+	static std::vector<Job*> modifiedJobs;
+	static std::unordered_set<Job*> modifiedJobsSet;
 	static std::vector<s4u_Link*> pfsReadLinks;
 	static std::vector<s4u_Link*> pfsWriteLinks;
 	static double pfsReadBandwidth;
@@ -40,6 +44,12 @@ public:
 	static void addModifiedComputeNode(Node* node);
 
 	static void clearModifiedComputeNodes();
+
+	[[nodiscard]] static const std::vector<Job*>& getModifiedJobs();
+
+	static void addModifiedJob(Job* job);
+
+	static void clearModifiedJobs();
 
 	[[nodiscard]] static double getPfsReadUtilization();
 

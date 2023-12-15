@@ -44,7 +44,7 @@ private:
 	const double gracePeriod;
 	std::vector<Job*> jobQueue;
 	std::vector<Job*> modifiedJobs;
-	std::map<Job*, s4u_Actor*> walltimeMonitors;
+	std::map<Job*, simgrid::s4u::ActorPtr> walltimeMonitors;
 	std::map<Job*, std::set<Node*>> assignedNodes;
 	int currentJobId;
 

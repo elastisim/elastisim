@@ -48,7 +48,7 @@ private:
 	std::set<Job*> runningJobs;
 	std::unordered_map<Job*, int> assignedRank;
 	std::unordered_map<Job*, int> assignedExpandRank;
-	std::unordered_map<Job*, s4u_Actor*> application;
+	std::unordered_map<Job*, simgrid::s4u::ActorPtr> application;
 	std::unordered_map<Job*, simgrid::s4u::BarrierPtr> barrier;
 	std::unordered_map<Job*, simgrid::s4u::BarrierPtr> expandBarrier;
 	std::ofstream& nodeUtilizationOutput;

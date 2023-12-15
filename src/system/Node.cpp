@@ -91,12 +91,12 @@ void Node::allocateJob(Job* job, int rank, const simgrid::s4u::BarrierPtr& jobBa
 	PlatformManager::addModifiedComputeNode(this);
 	collectStatistics();
 	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
-										 Application(this, job, assignedRank[job], logTaskTimes)).get();
+										 Application(this, job, assignedRank[job], logTaskTimes));
 }
 
 void Node::continueJob(Job* job) {
 	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
-										 Application(this, job, assignedRank[job], logTaskTimes)).get();
+										 Application(this, job, assignedRank[job], logTaskTimes));
 }
 
 void Node::reconfigureJob(Job* job, int rank, const simgrid::s4u::BarrierPtr& jobBarrier) {
@@ -104,7 +104,7 @@ void Node::reconfigureJob(Job* job, int rank, const simgrid::s4u::BarrierPtr& jo
 	barrier[job] = jobBarrier;
 	reconfiguring[job] = true;
 	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
-										 Application(this, job, assignedRank[job], logTaskTimes)).get();
+										 Application(this, job, assignedRank[job], logTaskTimes));
 }
 
 void Node::expandJob(Job* job, int rank, int expandRank,
@@ -124,7 +124,7 @@ void Node::expandJob(Job* job, int rank, int expandRank,
 	PlatformManager::addModifiedComputeNode(this);
 	collectStatistics();
 	application[job] = s4u_Actor::create("Application@Job" + std::to_string(job->getId()), host,
-										 Application(this, job, assignedRank[job], logTaskTimes)).get();
+										 Application(this, job, assignedRank[job], logTaskTimes));
 }
 
 void Node::completeJob(Job* job) {

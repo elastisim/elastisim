@@ -19,6 +19,7 @@
 #include "SchedMsg.h"
 #include "Configuration.h"
 #include "SchedulingInterface.h"
+#include "PlatformManager.h"
 
 XBT_LOG_NEW_DEFAULT_CATEGORY(Scheduler, "Messages within the Scheduler actor");
 
@@ -40,9 +41,9 @@ Scheduler::Scheduler(s4u_Host* masterHost) :
 void Scheduler::schedule(InvocationType invocationType, Job* requestingJob, int numberOfNodes) {
 	double clock = simgrid::s4u::Engine::get_clock();
 	if (minSchedulingInterval == 0 || clock - lastInvocation >= minSchedulingInterval - EPSILON) {
-		std::vector<Job*> scheduledJobs = SchedulingInterface::schedule(invocationType, jobQueue, modifiedJobs,
+		std::vector<Job*> scheduledJobs = SchedulingInterface::schedule(invocationType, jobQueue,
+																		PlatformManager::getModifiedJobs(),
 																		requestingJob, numberOfNodes);
-		modifiedJobs.clear();
 		if (invocationType == INVOKE_SCHEDULING_POINT || invocationType == INVOKE_EVOLVING_REQUEST) {
 			if (requestingJob->getState() == PENDING_KILL) {
 				forwardJobKill(requestingJob, false);
@@ -62,7 +63,6 @@ void Scheduler::schedule(InvocationType invocationType, Job* requestingJob, int 
 			} else if (job->getState() == PENDING_KILL) {
 				forwardJobKill(job, false);
 			}
-			modifiedJobs.push_back(job);
 		}
 		lastInvocation = clock;
 	}
@@ -71,7 +71,6 @@ void Scheduler::schedule(InvocationType invocationType, Job* requestingJob, int 
 void Scheduler::handleJobSubmit(Job* job) {
 	job->setId(currentJobId++);
 	job->setState(PENDING);
-	modifiedJobs.push_back(job);
 	jobQueue.push_back(job);
 	if (scheduleOnJobSubmit) {
 		schedule(INVOKE_JOB_SUBMIT, job);
@@ -84,7 +83,6 @@ void Scheduler::handleProcessedWorkload(Job* job) {
 	}
 	job->completeWorkload();
 	job->setState(COMPLETED);
-	modifiedJobs.push_back(job);
 	if (job->getWalltime() > 0) {
 		walltimeMonitors[job]->kill();
 	}
@@ -103,7 +101,6 @@ void Scheduler::forwardJobKill(Job* job, bool exceededWalltime) {
 		node->killJob(job);
 	}
 	job->setState(KILLED);
-	modifiedJobs.push_back(job);
 	s4u_Mailbox* mailboxSimulator = s4u_Mailbox::by_name("SimulationEngine");
 	mailboxSimulator->put_init(new SimMsg(JOB_KILLED, job->getId()), 0)->detach();
 	if (exceededWalltime && scheduleOnJobFinalize) {
@@ -114,7 +111,6 @@ void Scheduler::forwardJobKill(Job* job, bool exceededWalltime) {
 void Scheduler::forwardJobAllocation(Job* job) {
 	int rank = 0;
 	job->setState(RUNNING);
-	modifiedJobs.push_back(job);
 	simgrid::s4u::BarrierPtr barrier = s4u_Barrier::create(job->getNumberOfExecutingNodes());
 	for (const auto& node: job->getExecutingNodes()) {
 		assignedNodes[job].insert(node);
@@ -122,7 +118,7 @@ void Scheduler::forwardJobAllocation(Job* job) {
 	}
 	if (job->getWalltime() > 0) {
 		walltimeMonitors[job] = s4u_Actor::create("WalltimeMonitor@Job" + std::to_string(job->getId()),
-												  masterHost, WalltimeMonitor(job, gracePeriod)).get();
+												  masterHost, WalltimeMonitor(job, gracePeriod));
 	}
 }
 
@@ -170,7 +166,6 @@ void Scheduler::handleReconfiguration(Job* job) {
 }
 
 void Scheduler::handleSchedulingPoint(Job* job) {
-	modifiedJobs.push_back(job);
 	if (scheduleOnSchedulingPoint) {
 		schedule(INVOKE_SCHEDULING_POINT, job);
 	} else {
@@ -190,7 +185,6 @@ void Scheduler::handleSchedulingPoint(Job* job) {
 }
 
 void Scheduler::handleEvolvingRequest(Job* job, int numberOfnodes) {
-	modifiedJobs.push_back(job);
 	schedule(INVOKE_EVOLVING_REQUEST, job, numberOfnodes);
 }
 

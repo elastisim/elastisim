@@ -18,6 +18,8 @@
 std::vector<std::unique_ptr<Node>> PlatformManager::nodes;
 std::vector<Node*> PlatformManager::computeNodes;
 std::vector<Node*> PlatformManager::modifiedComputeNodes;
+std::vector<Job*> PlatformManager::modifiedJobs;
+std::unordered_set<Job*> PlatformManager::modifiedJobsSet;
 std::vector<s4u_Link*> PlatformManager::pfsReadLinks;
 std::vector<s4u_Link*> PlatformManager::pfsWriteLinks;
 double PlatformManager::pfsReadBandwidth = 0;
@@ -65,6 +67,22 @@ void PlatformManager::addModifiedComputeNode(Node* node) {
 
 void PlatformManager::clearModifiedComputeNodes() {
 	modifiedComputeNodes.clear();
+}
+
+const std::vector<Job*>& PlatformManager::getModifiedJobs() {
+	return modifiedJobs;
+}
+
+void PlatformManager::addModifiedJob(Job* job) {
+	if (modifiedJobsSet.find(job) == modifiedJobsSet.end()) {
+		modifiedJobs.push_back(job);
+		modifiedJobsSet.insert(job);
+	}
+}
+
+void PlatformManager::clearModifiedJobs() {
+	modifiedJobs.clear();
+	modifiedJobsSet.clear();
 }
 
 double PlatformManager::getPfsReadUtilization() {
