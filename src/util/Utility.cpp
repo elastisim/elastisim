@@ -225,7 +225,7 @@ Utility::readPhase(nlohmann::json jsonPhase, const std::map<std::string, std::st
 	if (jsonPhase["iterations"].is_number_unsigned()) {
 		iterations = jsonPhase["iterations"];
 	} else if (jsonPhase["iterations"].is_string()) {
-		iterations = std::stoi(applyArguments(jsonPhase["iterations"], arguments));
+		iterations = (int) evaluateFormula(applyArguments(jsonPhase["iterations"], arguments));
 	}
 	bool schedulingPoint = true;
 	if (jsonPhase["scheduling_point"].is_boolean()) {
@@ -567,6 +567,16 @@ Utility::createSequenceTask(nlohmann::json jsonTask, const std::string& name, co
 		tasks.push_back(readTask(task, arguments, numNodes, numGpusPerNode));
 	}
 	return std::make_unique<SequenceTask>(name, iterations, synchronized, std::move(tasks));
+}
+
+double Utility::evaluateFormula(const std::string& model) {
+	exprtk::parser<double> parser;
+	exprtk::expression<double> expression;
+	if (parser.compile(model, expression)) {
+		return expression.value();
+	} else {
+		xbt_die("Performance model %s not valid", model.c_str());
+	}
 }
 
 double Utility::evaluateFormula(const std::string& model, int numNodes, int numGpusPerNode) {

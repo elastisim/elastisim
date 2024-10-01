@@ -89,6 +89,8 @@ private:
 					   const std::map<std::string, std::string>& arguments, int numNodes, int numGpusPerNode);
 
 public:
+	[[nodiscard]] static double evaluateFormula(const std::string& model);
+
 	[[nodiscard]] static double evaluateFormula(const std::string& model, int numNodes, int numGpusPerNode);
 
 	[[nodiscard]] static double evaluateFormula(const std::string& model, int numNodes, int numGpusPerNode,
