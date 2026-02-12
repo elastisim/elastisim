@@ -1,2 +1,10 @@
 .idea/
 cmake-build-*/
+build/
+.cache/
+.vscode/
+
+# Spack
+.spack-env/
+spack.yaml
+spack.lock
