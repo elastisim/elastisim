@@ -59,3 +59,5 @@ target_include_directories(elastisim PRIVATE
 
 target_link_libraries(elastisim PRIVATE cppzmq)
 target_link_libraries(elastisim PRIVATE PkgConfig::simgrid)
+
+install(TARGETS elastisim RUNTIME DESTINATION bin)
