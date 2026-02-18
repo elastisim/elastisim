@@ -49,7 +49,7 @@ void SchedulingInterface::invokeScheduling(InvocationType invocationType, const 
 	}
 	PlatformManager::clearModifiedJobs();
 	PlatformManager::clearModifiedComputeNodes();
-	socket.send(zmq::buffer(message.dump()));
+	socket.send(zmq::buffer(nlohmann::json::to_msgpack(message)));
 }
 
 void SchedulingInterface::init() {
@@ -100,7 +100,10 @@ std::vector<Job*> SchedulingInterface::schedule(InvocationType invocationType, c
 	if (!result) {
 		xbt_die("ZeroMQ communication failed");
 	}
-	json = nlohmann::json::parse(message.to_string());
+	json = nlohmann::json::from_msgpack(
+		static_cast<const uint8_t *>(message.data()),
+		static_cast<const uint8_t *>(message.data()) + message.size()
+	);
 	if (json["code"] == ZMQ_SCHEDULED) {
 		return handleSchedule(json["jobs"], jobQueue);
 	} else {
@@ -111,6 +114,6 @@ std::vector<Job*> SchedulingInterface::schedule(InvocationType invocationType, c
 void SchedulingInterface::finalize() {
 	nlohmann::json message;
 	message["code"] = ZMQ_FINALIZE;
-	socket.send(zmq::buffer(message.dump()));
+	socket.send(zmq::buffer(nlohmann::json::to_msgpack(message)));
 	socket.close();
 }
