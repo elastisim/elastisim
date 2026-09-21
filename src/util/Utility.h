@@ -45,18 +45,18 @@ private:
 	[[nodiscard]] static std::string
 	applyArguments(const std::string& model, const std::map<std::string, std::string>& arguments);
 
-	[[nodiscard]] static std::map<std::string, std::string> readStringMap(nlohmann::json jsonMap);
+	[[nodiscard]] static std::map<std::string, std::string> readStringMap(const nlohmann::json& jsonMap);
 
 	[[nodiscard]] static std::unique_ptr<Task>
-	readTask(nlohmann::json jsonTask, const std::map<std::string, std::string>& arguments, int numNodes,
+	readTask(const nlohmann::json& jsonTask, const std::map<std::string, std::string>& arguments, int numNodes,
 			 int numGpusPerNode);
 
 	[[nodiscard]] static std::unique_ptr<Phase>
-	readPhase(nlohmann::json jsonPhase, const std::map<std::string, std::string>& arguments, int numNodes,
+	readPhase(const nlohmann::json& jsonPhase, const std::map<std::string, std::string>& arguments, int numNodes,
 			  int numGpusPerNode);
 
 	[[nodiscard]] static std::unique_ptr<Phase>
-	readOneTimePhase(nlohmann::json jsonPhase, const std::map<std::string, std::string>& arguments, int numNodes,
+	readOneTimePhase(const nlohmann::json& jsonPhase, const std::map<std::string, std::string>& arguments, int numNodes,
 					 int numGpusPerNode);
 
 	[[nodiscard]] static std::unique_ptr<Workload>
@@ -65,26 +65,26 @@ private:
 
 	template<typename T>
 	[[nodiscard]] static std::unique_ptr<T>
-	createDelayTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations, bool synchronized,
+	createDelayTask(const nlohmann::json& jsonTask, const std::string& name, const std::string& iterations, bool synchronized,
 					const std::map<std::string, std::string>& arguments, int numNodes, int numGpusPerNode);
 
 	template<typename T>
 	[[nodiscard]] static std::unique_ptr<T>
-	createIoTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations, bool synchronized,
+	createIoTask(const nlohmann::json& jsonTask, const std::string& name, const std::string& iterations, bool synchronized,
 				 const std::map<std::string, std::string>& arguments, int numNodes, int numGpusPerNode);
 
 	[[nodiscard]] static std::unique_ptr<Task>
-	createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations,
+	createCombinedGpuTask(const nlohmann::json& jsonTask, const std::string& name, const std::string& iterations,
 						  bool synchronized,
 						  const std::map<std::string, std::string>& arguments, int numNodes, int numGpusPerNode);
 
 	[[nodiscard]] static std::unique_ptr<Task>
-	createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations,
+	createCombinedCpuTask(const nlohmann::json& jsonTask, const std::string& name, const std::string& iterations,
 						  bool synchronized,
 						  const std::map<std::string, std::string>& arguments, int numNodes, int numGpusPerNode);
 
 	[[nodiscard]] static std::unique_ptr<Task>
-	createSequenceTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations,
+	createSequenceTask(const nlohmann::json& jsonTask, const std::string& name, const std::string& iterations,
 					   bool synchronized,
 					   const std::map<std::string, std::string>& arguments, int numNodes, int numGpusPerNode);
 
@@ -108,6 +108,9 @@ public:
 	[[nodiscard]] static std::vector<double>
 	createVector(const std::string& model, VectorPattern pattern, int numNodes, int numGpusPerNode,
 				 const std::map<std::string, std::string>& runtimeArguments);
+
+	[[nodiscard]] static std::vector<double>
+	createBandwidthVector(const std::string& model, VectorPattern pattern, int numNodes, int numGpusPerNode);
 
 	[[nodiscard]] static std::vector<double> createMatrix(double size, MatrixPattern pattern, int numNodes);
 

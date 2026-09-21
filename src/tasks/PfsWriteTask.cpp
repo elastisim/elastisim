@@ -19,8 +19,9 @@ XBT_LOG_NEW_DEFAULT_CATEGORY(PfsWriteTask, "Messages within the PFS write task")
 
 PfsWriteTask::PfsWriteTask(const std::string& name, const std::string& iterations, bool synchronized, bool asynchronous,
 						   const std::optional<std::vector<double>>& ioSizes, const std::optional<std::string>& ioModel,
+						   const std::optional<std::vector<double>>& bandwidths, const std::string& bandwidthModel,
 						   VectorPattern ioPattern) :
-		IoTask(name, iterations, synchronized, asynchronous, ioSizes, ioModel, ioPattern) {}
+		IoTask(name, iterations, synchronized, asynchronous, ioSizes, ioModel, bandwidths, bandwidthModel, ioPattern) {}
 
 void PfsWriteTask::execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
 						   simgrid::s4u::BarrierPtr barrier) const {
@@ -45,7 +46,14 @@ PfsWriteTask::executeAsync(const Node* node, const Job* job, const std::vector<N
 	for (int i = 1; i < numHosts; ++i) {
 		payloads[i] = payloadPerHost;
 	}
-	simgrid::s4u::ActivityPtr activity = simgrid::s4u::this_actor::exec_init(hosts, empty, payloads);
+	if (bandwidths[rank] > 0) {
+		XBT_INFO("Setting maximum outgoing bandwidth of node %d to %f MBps", node->getId(), (bandwidths[rank]/1000)/1000);
+		node->setOutgoingPfsLinkBandwidth(bandwidths[rank]);
+	}
+	simgrid::s4u::ExecPtr activity = simgrid::s4u::this_actor::exec_init(hosts, empty, payloads);
+	if (bandwidths[rank] > 0) {
+		activity->on_this_completion_cb([node](const s4u_Exec& activity){node->resetOutgoingPfsLinkBandwidth();});
+	}
 	activity->start();
 	return {activity};
 }

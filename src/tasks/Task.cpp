@@ -27,7 +27,7 @@ int Task::getIterations() const {
 }
 
 void Task::updateIterations(int numNodes, int numGpusPerNode) {
-	iterations = floor(Utility::evaluateFormula(iterationModel, numNodes, numGpusPerNode));
+	iterations = (int) Utility::evaluateFormula(iterationModel, numNodes, numGpusPerNode);
 }
 
 bool Task::isSynchronized() const {

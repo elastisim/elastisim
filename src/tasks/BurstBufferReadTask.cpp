@@ -18,8 +18,10 @@ XBT_LOG_NEW_DEFAULT_CATEGORY(BurstBufferReadTask,
 
 BurstBufferReadTask::BurstBufferReadTask(const std::string& name, const std::string& iterations, bool synchronized,
 										 bool asynchronous, const std::optional<std::vector<double>>& ioSizes,
-										 const std::optional<std::string>& ioModel, VectorPattern ioPattern) :
-		IoTask(name, iterations, synchronized, asynchronous, ioSizes, ioModel, ioPattern) {}
+										 const std::optional<std::string>& ioModel,
+										 const std::optional<std::vector<double>>& bandwidths,
+										 const std::string& bandwidthModel, VectorPattern ioPattern) :
+		IoTask(name, iterations, synchronized, asynchronous, ioSizes, ioModel, bandwidths, bandwidthModel, ioPattern) {}
 
 void BurstBufferReadTask::execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
 								  simgrid::s4u::BarrierPtr barrier) const {
