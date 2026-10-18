@@ -18,8 +18,9 @@ XBT_LOG_NEW_DEFAULT_CATEGORY(PfsReadTask, "Messages within the PFS read task");
 
 PfsReadTask::PfsReadTask(const std::string& name, const std::string& iterations, bool synchronized, bool asynchronous,
 						 const std::optional<std::vector<double>>& ioSizes, const std::optional<std::string>& ioModel,
+						 const std::optional<std::vector<double>>& bandwidths, const std::string& bandwidthModel,
 						 VectorPattern ioPattern) :
-		IoTask(name, iterations, synchronized, asynchronous, ioSizes, ioModel, ioPattern) {}
+		IoTask(name, iterations, synchronized, asynchronous, ioSizes, ioModel, bandwidths, bandwidthModel, ioPattern) {}
 
 void PfsReadTask::execute(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank,
 						  simgrid::s4u::BarrierPtr barrier) const {
@@ -30,8 +31,7 @@ void PfsReadTask::execute(const Node* node, const Job* job, const std::vector<No
 }
 
 std::vector<simgrid::s4u::ActivityPtr>
-PfsReadTask::executeAsync(const Node* node, const Job* job,
-						  const std::vector<Node*>& nodes, int rank) const {
+PfsReadTask::executeAsync(const Node* node, const Job* job, const std::vector<Node*>& nodes, int rank) const {
 	if (ioSizes[rank] > 0) {
 		XBT_INFO("Reading %f bytes from PFS", ioSizes[rank]);
 	}
@@ -45,7 +45,14 @@ PfsReadTask::executeAsync(const Node* node, const Job* job,
 	for (int i = numHosts; i < numHosts * numHosts; i += numHosts) {
 		payloads[i] = payloadPerHost;
 	}
-	simgrid::s4u::ActivityPtr activity = simgrid::s4u::this_actor::exec_init(hosts, empty, payloads);
+	if (bandwidths[rank] > 0) {
+		XBT_INFO("Setting maximum incoming bandwidth of node %d to %f MBps", node->getId(), (bandwidths[rank]/1000)/1000);
+		node->setIncomingPfsLinkBandwidth(bandwidths[rank]);
+	}
+	simgrid::s4u::ExecPtr activity = simgrid::s4u::this_actor::exec_init(hosts, empty, payloads);
+	if (bandwidths[rank] > 0) {
+		activity->on_this_completion_cb([node](const s4u_Exec& activity){node->resetIncomingPfsLinkBandwidth();});
+	}
 	activity->start();
 	return {activity};
 }

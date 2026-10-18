@@ -144,7 +144,7 @@ std::string Utility::applyArguments(const std::string& model, const std::map<std
 	return substitutedModel;
 }
 
-std::map<std::string, std::string> Utility::readStringMap(nlohmann::json jsonMap) {
+std::map<std::string, std::string> Utility::readStringMap(const nlohmann::json& jsonMap) {
 	std::map<std::string, std::string> map;
 	for (const auto& mapping: jsonMap.items()) {
 		if (mapping.value().is_string()) {
@@ -163,25 +163,25 @@ std::map<std::string, std::string> Utility::readStringMap(nlohmann::json jsonMap
 }
 
 std::unique_ptr<Task>
-Utility::readTask(nlohmann::json jsonTask, const std::map<std::string, std::string>& arguments, int numNodes,
+Utility::readTask(const nlohmann::json& jsonTask, const std::map<std::string, std::string>& arguments, int numNodes,
 				  int numGpusPerNode) {
 
 	std::string name;
-	if (jsonTask["name"].is_string()) {
+	if (jsonTask.contains("name") && jsonTask["name"].is_string()) {
 		name = jsonTask["name"];
 	}
-	std::string iterations;
-	if (jsonTask["iterations"].is_string()) {
-		iterations = applyArguments(jsonTask["iterations"], arguments);
-	} else if (jsonTask["iterations"].is_number_unsigned()) {
-		int iterationsInteger = jsonTask["iterations"];
-		iterations = std::to_string(iterationsInteger);
-	} else {
-		iterations = "1";
+
+	std::string iterations = "1";
+	if (jsonTask.contains("iterations")) {
+		if (jsonTask["iterations"].is_string()) {
+			iterations = applyArguments(jsonTask["iterations"], arguments);
+		} else if (jsonTask["iterations"].is_number_unsigned()) {
+			iterations = std::to_string((int) jsonTask["iterations"]);
+		}
 	}
 
 	bool synchronized = false;
-	if (jsonTask["synchronized"].is_boolean()) {
+	if (jsonTask.contains("synchronized") && jsonTask["synchronized"].is_boolean()) {
 		synchronized = jsonTask["synchronized"];
 	}
 
@@ -219,24 +219,26 @@ Utility::readTask(nlohmann::json jsonTask, const std::map<std::string, std::stri
 }
 
 std::unique_ptr<Phase>
-Utility::readPhase(nlohmann::json jsonPhase, const std::map<std::string, std::string>& arguments, int numNodes,
+Utility::readPhase(const nlohmann::json& jsonPhase, const std::map<std::string, std::string>& arguments, int numNodes,
 				   int numGpusPerNode) {
 	int iterations = 1;
-	if (jsonPhase["iterations"].is_number_unsigned()) {
-		iterations = jsonPhase["iterations"];
-	} else if (jsonPhase["iterations"].is_string()) {
-		iterations = (int) evaluateFormula(applyArguments(jsonPhase["iterations"], arguments));
+	if (jsonPhase.contains("iterations")) {
+		if (jsonPhase["iterations"].is_number_unsigned()) {
+			iterations = jsonPhase["iterations"];
+		} else if (jsonPhase["iterations"].is_string()) {
+			iterations = (int) evaluateFormula(applyArguments(jsonPhase["iterations"], arguments));
+		}
 	}
 	bool schedulingPoint = true;
-	if (jsonPhase["scheduling_point"].is_boolean()) {
+	if (jsonPhase.contains("scheduling_point") && jsonPhase["scheduling_point"].is_boolean()) {
 		schedulingPoint = jsonPhase["scheduling_point"];
 	}
 	std::string evolvingRequest;
-	if (jsonPhase["evolving_request"].is_string()) {
+	if (jsonPhase.contains("evolving_request") && jsonPhase["evolving_request"].is_string()) {
 		evolvingRequest = jsonPhase["evolving_request"];
 	}
 	bool barrier = true;
-	if (jsonPhase["barrier"].is_boolean()) {
+	if (jsonPhase.contains("barrier") && jsonPhase["barrier"].is_boolean()) {
 		barrier = jsonPhase["barrier"];
 	}
 	std::deque<std::unique_ptr<Task>> tasks;
@@ -247,14 +249,14 @@ Utility::readPhase(nlohmann::json jsonPhase, const std::map<std::string, std::st
 }
 
 std::unique_ptr<Phase>
-Utility::readOneTimePhase(nlohmann::json jsonPhase, const std::map<std::string, std::string>& arguments, int numNodes,
+Utility::readOneTimePhase(const nlohmann::json& jsonPhase, const std::map<std::string, std::string>& arguments, int numNodes,
 						  int numGpusPerNode) {
 
 	if (jsonPhase.is_null()) {
 		return nullptr;
 	}
 	int iterations = 1;
-	if (jsonPhase["iterations"].is_number_unsigned()) {
+	if (jsonPhase.contains("iterations") && jsonPhase["iterations"].is_number_unsigned()) {
 		iterations = jsonPhase["iterations"];
 	}
 	bool schedulingPoint = false;
@@ -272,6 +274,9 @@ Utility::readWorkload(const std::string& workloadFile, const std::map<std::strin
 					  int numNodes, int numGpusPerNode) {
 	std::ifstream stream(workloadFile);
 	nlohmann::json json = nlohmann::json::parse(stream);
+	if (!json.contains("phases")) {
+		xbt_die("Applicaton models require the field \"phases\"");
+	}
 	std::unique_ptr<Phase> onInitialize = readOneTimePhase(json["on_init"], arguments, numNodes, numGpusPerNode);
 	std::unique_ptr<Phase> onReconfiguration = readOneTimePhase(json["on_reconfiguration"], arguments, numNodes,
 																numGpusPerNode);
@@ -286,9 +291,13 @@ Utility::readWorkload(const std::string& workloadFile, const std::map<std::strin
 
 template<typename T>
 std::unique_ptr<T>
-Utility::createDelayTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations,
+Utility::createDelayTask(const nlohmann::json& jsonTask, const std::string& name, const std::string& iterations,
 						 bool synchronized, const std::map<std::string, std::string>& arguments, int numNodes,
 						 int numGpusPerNode) {
+
+	if (!jsonTask.contains("delay") || !jsonTask.contains("pattern")) {
+		xbt_die("Delay tasks require the fields \"delay\" and \"pattern\"");
+	}
 
 	std::optional<std::vector<double>> delays;
 	std::optional<std::string> delayModel;
@@ -302,7 +311,7 @@ Utility::createDelayTask(nlohmann::json jsonTask, const std::string& name, const
 				delayModel = std::to_string((double) jsonTask["delay"]);
 				return std::make_unique<T>(name, iterations, synchronized, delays, delayModel, pattern);
 			} else if (jsonTask["delay"].is_string()) {
-				delayModel = std::make_optional(applyArguments(jsonTask["delay"], arguments));
+				delayModel = applyArguments(jsonTask["delay"], arguments);
 				return std::make_unique<T>(name, iterations, synchronized, delays, delayModel, pattern);
 			} else {
 				xbt_die("%s pattern requires a number or string type", asString(pattern).c_str());
@@ -332,47 +341,80 @@ Utility::createDelayTask(nlohmann::json jsonTask, const std::string& name, const
 
 template<typename T>
 std::unique_ptr<T>
-Utility::createIoTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations,
+Utility::createIoTask(const nlohmann::json& jsonTask, const std::string& name, const std::string& iterations,
 					  bool synchronized, const std::map<std::string, std::string>& arguments, int numNodes,
 					  int numGpusPerNode) {
 
+	if (!jsonTask.contains("bytes") || !jsonTask.contains("pattern")) {
+		xbt_die("I/O tasks require the fields \"bytes\" and \"pattern\"");
+	}
+
 	bool async = false;
-	if (jsonTask["async"].is_boolean()) {
+	if (jsonTask.contains("async") && jsonTask["async"].is_boolean()) {
 		async = jsonTask["async"];
 	}
 
 	std::optional<std::vector<double>> ioSizes;
 	std::optional<std::string> ioModel;
+	std::optional<std::vector<double>> bandwidths;
+	std::string bandwidthModel = "0";
 
 	VectorPattern pattern = asVectorPattern(jsonTask["pattern"]);
+
 	if (numNodes == 0) {
 		if (pattern == VECTOR) {
 			xbt_die("Invalid pattern type %s for malleable job", asString(pattern).c_str());
 		} else {
+			if (jsonTask.contains("bandwidth")) {
+				if (jsonTask["bandwidth"].is_number()) {
+					bandwidthModel = std::to_string((double) jsonTask["bandwidth"]);
+				} else if (jsonTask["bandwidth"].is_string()) {
+					bandwidthModel = applyArguments(jsonTask["bandwidth"], arguments);
+				}
+			}
 			if (jsonTask["bytes"].is_number()) {
 				ioModel = std::to_string((double) jsonTask["bytes"]);
-				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, pattern);
+				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, bandwidths, bandwidthModel, pattern);
 			} else if (jsonTask["bytes"].is_string()) {
 				ioModel = applyArguments(jsonTask["bytes"], arguments);
-				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, pattern);
+				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, bandwidths, bandwidthModel, pattern);
 			} else {
 				xbt_die("%s pattern requires a number or string type", asString(pattern).c_str());
 			}
 		}
 	} else {
 		if (pattern == VECTOR) {
+			if (jsonTask.contains("bandwidth")) {
+				if (!jsonTask["bandwidth"].is_array()) {
+					xbt_die("VECTOR pattern requires an array type");
+				}
+				bandwidths = jsonTask["bandwidth"];
+			} else {
+				bandwidths = std::vector<double>(numNodes, 0);
+			}
 			if (!jsonTask["bytes"].is_array()) {
 				xbt_die("VECTOR pattern requires an array type");
 			}
 			ioSizes = jsonTask["bytes"];
-			return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, pattern);
+			return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, bandwidths, bandwidthModel, pattern);
 		} else {
+			if (jsonTask.contains("bandwidth")) {
+				if (jsonTask["bandwidth"].is_number()) {
+					bandwidths = createBandwidthVector(std::to_string((double) jsonTask["bandwidth"]), pattern,
+													   numNodes, numGpusPerNode);
+				} else if (jsonTask["bandwidth"].is_string()) {
+					bandwidthModel = applyArguments(jsonTask["bandwidth"], arguments);
+					bandwidths = createBandwidthVector(bandwidthModel, pattern, numNodes, numGpusPerNode);
+				}
+			} else {
+				bandwidths = createBandwidthVector("0", pattern, numNodes, numGpusPerNode);
+			}
 			if (jsonTask["bytes"].is_number()) {
 				ioSizes = createVector((double) jsonTask["bytes"], pattern, numNodes);
-				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, pattern);
+				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, bandwidths, bandwidthModel, pattern);
 			} else if (jsonTask["bytes"].is_string()) {
 				ioSizes = createVector(applyArguments(jsonTask["bytes"], arguments), pattern, numNodes, numGpusPerNode);
-				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, pattern);
+				return std::make_unique<T>(name, iterations, synchronized, async, ioSizes, ioModel, bandwidths, bandwidthModel, pattern);
 			} else {
 				xbt_die("%s pattern requires a number or string type", asString(pattern).c_str());
 			}
@@ -381,19 +423,22 @@ Utility::createIoTask(nlohmann::json jsonTask, const std::string& name, const st
 }
 
 std::unique_ptr<Task>
-Utility::createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations,
+Utility::createCombinedGpuTask(const nlohmann::json& jsonTask, const std::string& name, const std::string& iterations,
 							   bool synchronized, const std::map<std::string, std::string>& arguments, int numNodes,
 							   int numGpusPerNode) {
 
-	if (jsonTask["flops"].is_null() && jsonTask["bytes"].is_null()) {
-		xbt_die("FLOPS and payloads can not be simultaneously unspecified for the same task");
+	if (!jsonTask.contains("flops") && !jsonTask.contains("bytes")) {
+		xbt_die("FLOPS and bytes can not be simultaneously unspecified for the same task");
 	}
 
 	std::optional<std::vector<double>> flops;
 	std::optional<std::string> gpuModel;
 
 	VectorPattern gpuPattern;
-	if (!jsonTask["flops"].is_null()) {
+	if (jsonTask.contains("flops")) {
+		if (!jsonTask.contains("computation_pattern")) {
+			xbt_die("GPU computation tasks require the field \"computation_pattern\"");
+		}
 		gpuPattern = asVectorPattern(jsonTask["computation_pattern"]);
 		if (numNodes == 0) {
 			if (gpuPattern == VECTOR) {
@@ -432,7 +477,10 @@ Utility::createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name,
 	std::optional<std::string> comModel;
 
 	MatrixPattern comPattern;
-	if (!jsonTask["bytes"].is_null()) {
+	if (jsonTask.contains("bytes")) {
+		if (!jsonTask.contains("communication_pattern")) {
+			xbt_die("Communication tasks require the field \"communication_pattern\"");
+		}
 		comPattern = asMatrixPattern(jsonTask["communication_pattern"]);
 		if (numNodes == 0) {
 			if (jsonTask["bytes"].is_number()) {
@@ -440,7 +488,7 @@ Utility::createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name,
 			} else if (jsonTask["bytes"].is_string()) {
 				comModel = applyArguments(jsonTask["bytes"], arguments);
 			} else {
-				xbt_die("Payloads require a number or string type");
+				xbt_die("Bytes require a number or string type");
 			}
 		} else {
 			if (comPattern == MATRIX) {
@@ -454,7 +502,7 @@ Utility::createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name,
 							createMatrices(applyArguments(jsonTask["bytes"], arguments), comPattern, numNodes,
 										   numGpusPerNode);
 				} else {
-					xbt_die("Payloads require a number or string type");
+					xbt_die("Bytes require a number or string type");
 				}
 			}
 		}
@@ -467,19 +515,22 @@ Utility::createCombinedGpuTask(nlohmann::json jsonTask, const std::string& name,
 }
 
 std::unique_ptr<Task>
-Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations,
+Utility::createCombinedCpuTask(const nlohmann::json& jsonTask, const std::string& name, const std::string& iterations,
 							   bool synchronized, const std::map<std::string, std::string>& arguments, int numNodes,
 							   int numGpusPerNode) {
 
-	if (jsonTask["flops"].is_null() && jsonTask["bytes"].is_null()) {
-		xbt_die("FLOPS and payloads can not be simultaneously unspecified for the same task");
+	if (!jsonTask.contains("flops") && !jsonTask.contains("bytes")) {
+		xbt_die("FLOPS and bytes can not be simultaneously unspecified for the same task");
 	}
 
 	std::optional<std::vector<double>> flops;
 	std::optional<std::string> cpuModel;
 
 	VectorPattern cpuPattern;
-	if (!jsonTask["flops"].is_null()) {
+	if (jsonTask.contains("flops")) {
+		if (!jsonTask.contains("computation_pattern")) {
+			xbt_die("Computation tasks require the field \"computation_pattern\"");
+		}
 		cpuPattern = asVectorPattern(jsonTask["computation_pattern"]);
 		if (numNodes == 0) {
 			if (cpuPattern == VECTOR) {
@@ -517,7 +568,10 @@ Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name,
 	std::optional<std::string> comModel;
 
 	MatrixPattern comPattern;
-	if (!jsonTask["bytes"].is_null()) {
+	if (jsonTask.contains("bytes")) {
+		if (!jsonTask.contains("communication_pattern")) {
+			xbt_die("Communication tasks require the field \"communication_pattern\"");
+		}
 		comPattern = asMatrixPattern(jsonTask["communication_pattern"]);
 		if (numNodes == 0) {
 			if (jsonTask["bytes"].is_number()) {
@@ -525,7 +579,7 @@ Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name,
 			} else if (jsonTask["bytes"].is_string()) {
 				comModel = applyArguments(jsonTask["bytes"], arguments);
 			} else {
-				xbt_die("Payloads require a number or string type");
+				xbt_die("Bytes require a number or string type");
 			}
 		} else {
 			if (comPattern == MATRIX) {
@@ -541,7 +595,7 @@ Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name,
 					bytes = createMatrix(applyArguments(jsonTask["bytes"], arguments), comPattern, numNodes,
 										 numGpusPerNode);
 				} else {
-					xbt_die("Payloads require a number or string type");
+					xbt_die("Bytes require a number or string type");
 				}
 			}
 		}
@@ -549,7 +603,7 @@ Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name,
 	}
 
 	bool coupled = false;
-	if (jsonTask["coupled"].is_boolean()) {
+	if (jsonTask.contains("coupled") && jsonTask["coupled"].is_boolean()) {
 		coupled = jsonTask["coupled"];
 	}
 
@@ -559,9 +613,12 @@ Utility::createCombinedCpuTask(nlohmann::json jsonTask, const std::string& name,
 }
 
 std::unique_ptr<Task>
-Utility::createSequenceTask(nlohmann::json jsonTask, const std::string& name, const std::string& iterations,
+Utility::createSequenceTask(const nlohmann::json& jsonTask, const std::string& name, const std::string& iterations,
 							bool synchronized, const std::map<std::string, std::string>& arguments, int numNodes,
 							int numGpusPerNode) {
+	if (!jsonTask.contains("tasks")) {
+		xbt_die("Sequence tasks require the field \"tasks\"");
+	}
 	std::deque<std::unique_ptr<Task>> tasks;
 	for (auto& task: jsonTask["tasks"]) {
 		tasks.push_back(readTask(task, arguments, numNodes, numGpusPerNode));
@@ -680,6 +737,31 @@ Utility::createVector(const std::string& model, VectorPattern pattern, int numNo
 					  const std::map<std::string, std::string>& runtimeArguments) {
 	double size = evaluateFormula(model, numNodes, numGpusPerNode, runtimeArguments);
 	return createVector(size, pattern, numNodes);
+}
+
+std::vector<double>
+Utility::createBandwidthVector(const std::string& model, VectorPattern pattern, int numNodes, int numGpusPerNode) {
+	double size = evaluateFormula(model, numNodes, numGpusPerNode);
+	std::vector<double> sizes(numNodes);
+	if (pattern == EVEN_RANKS) {
+		int participatingNodes = numNodes % 2 == 0 ? numNodes / 2 : numNodes / 2 + 1;
+		double sizePerNode = size / participatingNodes;
+		for (int i = 0; i < numNodes; i += 2) {
+			sizes[i] = sizePerNode;
+		}
+	} else if (pattern == ODD_RANKS) {
+		int participatingNodes = numNodes / 2;
+		double sizePerNode = size / participatingNodes;
+		for (int i = 1; i < numNodes; i += 2) {
+			sizes[i] = sizePerNode;
+		}
+	} else if (pattern == ROOT_ONLY) {
+		sizes[0] = size;
+	} else if (pattern == ALL_RANKS || pattern == UNIFORM) {
+		double sizePerNode = size / numNodes;
+		std::fill(std::begin(sizes), std::end(sizes), sizePerNode);
+	}
+	return sizes;
 }
 
 std::vector<double>

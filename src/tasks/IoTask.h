@@ -23,10 +23,14 @@ protected:
 	std::vector<double> ioSizes;
 	const std::string ioModel;
 	const VectorPattern ioPattern;
+	std::vector<double> bandwidths;
+	const std::string bandwidthModel;
 
 public:
 	IoTask(const std::string& name, const std::string& iterations, bool synchronized, bool asynchronous,
-		   std::optional<std::vector<double>> ioSizes, std::optional<std::string> ioModel, VectorPattern ioPattern);
+		   std::optional<std::vector<double>> ioSizes, std::optional<std::string> ioModel,
+		   std::optional<std::vector<double>> bandwidths, std::string bandwidthModel,
+		   VectorPattern ioPattern);
 
 	[[nodiscard]] bool isAsynchronous() const override;
 

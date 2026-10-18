@@ -28,7 +28,7 @@ Scheduler::Scheduler(s4u_Host* masterHost) :
 		schedulingInterval(Configuration::exists("scheduling_interval") ?
 						   (double) Configuration::get("scheduling_interval") : 0),
 		minSchedulingInterval(Configuration::exists("min_scheduling_interval") ?
-							  (double) Configuration::get("min_scheduling_interval") : 0), lastInvocation(0),
+							  (double) Configuration::get("min_scheduling_interval") : 0), lastInvocation(-minSchedulingInterval),
 		scheduleOnJobSubmit(Configuration::getBoolIfExists("schedule_on_job_submit")),
 		scheduleOnJobFinalize(Configuration::getBoolIfExists("schedule_on_job_finalize")),
 		scheduleOnSchedulingPoint(Configuration::getBoolIfExists("schedule_on_scheduling_point")),

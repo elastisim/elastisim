@@ -64,6 +64,9 @@ private:
 	const bool allowOversubscription;
 	const bool logTaskTimes;
 	std::ofstream& taskTimes;
+	std::unordered_set<s4u_Link*> readPfsLinks;
+	std::unordered_set<s4u_Link*> writePfsLinks;
+	std::unordered_map<s4u_Link*, double> initialBandwidths;
 
 	void collectStatistics();
 
@@ -134,6 +137,14 @@ public:
 	void removeExpectedJob(Job* job);
 
 	void logTaskTime(const Job* job, const Task* task, double duration) const;
+
+	void setIncomingPfsLinkBandwidth(double bandwidth) const;
+
+	void resetIncomingPfsLinkBandwidth() const;
+
+	void setOutgoingPfsLinkBandwidth(double bandwidth) const;
+
+	void resetOutgoingPfsLinkBandwidth() const;
 
 	[[nodiscard]] nlohmann::json toJson();
 

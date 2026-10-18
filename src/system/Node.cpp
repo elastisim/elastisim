@@ -34,6 +34,14 @@ Node::Node(int id, NodeType type, s4u_Host* host, s4u_Disk* nodeLocalBurstBuffer
 	for (const auto& gpu: Node::gpus) {
 		gpuPointers.push_back(gpu.get());
 	}
+	for (const auto* pfsHost: Node::pfsHosts) {
+		s4u_Link* readLink = pfsHost->route_to(host).first.back();
+		readPfsLinks.insert(readLink);
+		initialBandwidths[readLink] = readLink->get_bandwidth();
+		s4u_Link* writeLink = host->route_to(pfsHost).first.front();
+		writePfsLinks.insert(writeLink);
+		initialBandwidths[writeLink] = writeLink->get_bandwidth();
+	}
 	collectStatistics();
 	PlatformManager::addModifiedComputeNode(this);
 }
@@ -141,6 +149,8 @@ void Node::killJob(Job* job) {
 	application[job]->kill();
 	application.erase(job);
 	runningJobs.erase(job);
+	resetIncomingPfsLinkBandwidth();
+	resetOutgoingPfsLinkBandwidth();
 	if (runningJobs.empty()) {
 		state = NODE_FREE;
 	}
@@ -300,6 +310,40 @@ void Node::removeExpectedJob(Job* job) {
 void Node::logTaskTime(const Job* job, const Task* task, double duration) const {
 	taskTimes << simgrid::s4u::Engine::get_clock() << "," << job->getId() << "," << getHostName() << ","
 			  << task->getName() << "," << duration << std::endl;
+}
+
+void Node::setIncomingPfsLinkBandwidth(double bandwidth) const {
+	if (!readPfsLinks.empty()) {
+		double bwPerLink = bandwidth / readPfsLinks.size();
+		for (const auto& link: readPfsLinks) {
+			link->set_bandwidth(std::min(bwPerLink, initialBandwidths.at(link)));
+		}
+	}
+}
+
+void Node::resetIncomingPfsLinkBandwidth() const {
+	if (!readPfsLinks.empty()) {
+		for (const auto& link: readPfsLinks) {
+			link->set_bandwidth(initialBandwidths.at(link));
+		}
+	}
+}
+
+void Node::setOutgoingPfsLinkBandwidth(double bandwidth) const {
+	if (!writePfsLinks.empty()) {
+		double bwPerLink = bandwidth / writePfsLinks.size();
+		for (const auto& link: writePfsLinks) {
+			link->set_bandwidth(std::min(bwPerLink, initialBandwidths.at(link)));
+		}
+	}
+}
+
+void Node::resetOutgoingPfsLinkBandwidth() const {
+	if (!writePfsLinks.empty()) {
+		for (const auto& link: writePfsLinks) {
+			link->set_bandwidth(initialBandwidths.at(link));
+		}
+	}
 }
 
 nlohmann::json Node::toJson() {
