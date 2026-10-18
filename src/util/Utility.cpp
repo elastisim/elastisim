@@ -226,7 +226,7 @@ Utility::readPhase(const nlohmann::json& jsonPhase, const std::map<std::string, 
 		if (jsonPhase["iterations"].is_number_unsigned()) {
 			iterations = jsonPhase["iterations"];
 		} else if (jsonPhase["iterations"].is_string()) {
-			iterations = std::stoi(applyArguments(jsonPhase["iterations"], arguments));
+			iterations = (int) evaluateFormula(applyArguments(jsonPhase["iterations"], arguments));
 		}
 	}
 	bool schedulingPoint = true;
@@ -346,7 +346,7 @@ Utility::createIoTask(const nlohmann::json& jsonTask, const std::string& name, c
 					  int numGpusPerNode) {
 
 	if (!jsonTask.contains("bytes") || !jsonTask.contains("pattern")) {
-		xbt_die("Delay tasks require the fields \"bytes\" and \"pattern\"");
+		xbt_die("I/O tasks require the fields \"bytes\" and \"pattern\"");
 	}
 
 	bool async = false;
@@ -384,10 +384,14 @@ Utility::createIoTask(const nlohmann::json& jsonTask, const std::string& name, c
 		}
 	} else {
 		if (pattern == VECTOR) {
-			if (jsonTask.contains("bandwidth") && !jsonTask["bandwidth"].is_array()) {
-				xbt_die("VECTOR pattern requires an array type");
+			if (jsonTask.contains("bandwidth")) {
+				if (!jsonTask["bandwidth"].is_array()) {
+					xbt_die("VECTOR pattern requires an array type");
+				}
+				bandwidths = jsonTask["bandwidth"];
+			} else {
+				bandwidths = std::vector<double>(numNodes, 0);
 			}
-			bandwidths = jsonTask["bandwidth"];
 			if (!jsonTask["bytes"].is_array()) {
 				xbt_die("VECTOR pattern requires an array type");
 			}
@@ -620,6 +624,16 @@ Utility::createSequenceTask(const nlohmann::json& jsonTask, const std::string& n
 		tasks.push_back(readTask(task, arguments, numNodes, numGpusPerNode));
 	}
 	return std::make_unique<SequenceTask>(name, iterations, synchronized, std::move(tasks));
+}
+
+double Utility::evaluateFormula(const std::string& model) {
+	exprtk::parser<double> parser;
+	exprtk::expression<double> expression;
+	if (parser.compile(model, expression)) {
+		return expression.value();
+	} else {
+		xbt_die("Performance model %s not valid", model.c_str());
+	}
 }
 
 double Utility::evaluateFormula(const std::string& model, int numNodes, int numGpusPerNode) {

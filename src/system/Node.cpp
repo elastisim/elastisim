@@ -149,6 +149,8 @@ void Node::killJob(Job* job) {
 	application[job]->kill();
 	application.erase(job);
 	runningJobs.erase(job);
+	resetIncomingPfsLinkBandwidth();
+	resetOutgoingPfsLinkBandwidth();
 	if (runningJobs.empty()) {
 		state = NODE_FREE;
 	}
